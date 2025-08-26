@@ -19,6 +19,7 @@ import type { ItemGroupData, VehiclePart } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
 import RequirementData from "./item/RequirementData.svelte";
 import ThingLink from "./ThingLink.svelte";
+import ModTag from "./ModTag.svelte";
 
 const _context = "Vehicle Part";
 
@@ -85,6 +86,7 @@ vehiclesContainingPart.sort((a, b) =>
     : item.item
     ? singularName(data.byId("item", item.item))
     : item.id}
+  <ModTag {item} clickable />
 </h1>
 
 <section>

@@ -12,8 +12,8 @@ import {
 import LimitedList from "../LimitedList.svelte";
 import type { Material } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
-
 import ThingLink from "./ThingLink.svelte";
+import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 
@@ -42,7 +42,7 @@ let itemsWithMaterial = data
   .sort(byName);
 </script>
 
-<h1>{t("Material")}: {singularName(item)}</h1>
+<h1>{t("Material")}: {singularName(item)} <ModTag {item} clickable /></h1>
 <section>
   <h1>{t("Properties", { _context })}</h1>
   <dl>

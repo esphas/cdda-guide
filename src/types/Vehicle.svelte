@@ -16,6 +16,7 @@ import type { Vehicle, VehiclePart } from "../types";
 import { groupBy } from "./item/utils";
 import ThingLink from "./ThingLink.svelte";
 import ItemTable from "./item/ItemTable.svelte";
+import ModTag from "./ModTag.svelte";
 
 export let item: Vehicle;
 
@@ -221,7 +222,7 @@ partsCounted.sort((a, b) => {
 });
 </script>
 
-<h1>{singularName(item)}</h1>
+<h1>{singularName(item)} <ModTag {item} clickable /></h1>
 
 <section>
   <pre

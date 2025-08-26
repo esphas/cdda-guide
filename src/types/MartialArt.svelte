@@ -1,4 +1,5 @@
 <script lang="ts">
+import { t } from "@transifex/native";
 import { isItemSubtype, type MartialArt, type MartialArtBuff } from "../types";
 import { getContext } from "svelte";
 import { CddaData, i18n, singular, singularName } from "../data";
@@ -7,7 +8,7 @@ import ThingLink from "./ThingLink.svelte";
 import Technique from "./Technique.svelte";
 import BonusContainer from "./BonusContainer.svelte";
 import MartialArtRequirements from "./MartialArtRequirements.svelte";
-import { t } from "@transifex/native";
+import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 
@@ -51,7 +52,7 @@ const buffMap = new Map(
 );
 </script>
 
-<h1>{t("Martial Art")}: {singularName(item)}</h1>
+<h1>{t("Martial Art")}: {singularName(item)} <ModTag {item} clickable /></h1>
 
 <section>
   <h1>{t("General", { _context })}</h1>

@@ -16,6 +16,7 @@ import BonusContainer from "./BonusContainer.svelte";
 import MartialArtRequirements from "./MartialArtRequirements.svelte";
 import ThingLink from "./ThingLink.svelte";
 import ItemSymbol from "./item/ItemSymbol.svelte";
+import ModTag from "./ModTag.svelte";
 
 export let item: Technique;
 export let buffMap: Map<string, MartialArtBuff> = new Map();
@@ -63,12 +64,18 @@ if (item.stunned_target)
 </script>
 
 {#if standalone}
-  <h1>{t("Technique", { _context })}: {singularName(item)}</h1>
+  <h1>
+    {t("Technique", { _context })}: {singularName(item)}
+    <ModTag {item} clickable />
+  </h1>
 {/if}
 
 <section>
   {#if !standalone}
-    <h1>{t("Technique", { _context })}: {singularName(item)}</h1>
+    <h1>
+      {t("Technique", { _context })}: {singularName(item)}
+      <ModTag {item} />
+    </h1>
   {/if}
   <dl>
     <dt>{t("Type", { _context })}</dt>

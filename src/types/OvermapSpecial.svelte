@@ -14,6 +14,7 @@ import ThingLink from "./ThingLink.svelte";
 import { t } from "@transifex/native";
 import OvermapAppearance from "./item/OvermapAppearance.svelte";
 import ItemTable from "./item/ItemTable.svelte";
+import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 
@@ -57,7 +58,7 @@ onMount(() => {
 });
 </script>
 
-<h1>{singularName(item)}</h1>
+<h1>{singularName(item)} <ModTag {item} clickable /></h1>
 
 <section>
   {#if item.subtype === "mutable"}

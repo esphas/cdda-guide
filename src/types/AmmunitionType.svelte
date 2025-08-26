@@ -8,6 +8,7 @@ import type { AmmunitionType, Item, ItemSubtypeToSlot } from "../types";
 import { isItemSubtype } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
 import ThingLink from "./ThingLink.svelte";
+import ModTag from "./ModTag.svelte";
 
 export let item: AmmunitionType;
 
@@ -52,7 +53,10 @@ function byType(a: Item, b: Item) {
 usedBy.sort(composeSort(byType, byName));
 </script>
 
-<h1>{t("Ammunition Type")}: {singularName(item)}</h1>
+<h1>
+  {t("Ammunition Type")}: {singularName(item)}
+  <ModTag {item} clickable />
+</h1>
 <section>
   <h1>{t("Compatible Variants", { _context })}</h1>
   <ul>

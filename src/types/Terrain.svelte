@@ -16,6 +16,7 @@ import ItemSymbol from "./item/ItemSymbol.svelte";
 import TerFurnActivity from "./TerFurnActivity.svelte";
 import ThingLink from "./ThingLink.svelte";
 import TerrainSpawnedIn from "./item/TerrainSpawnedIn.svelte";
+import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 const _context = "Terrain / Furniture";
@@ -67,6 +68,7 @@ const constructions = data
 <h1>
   <ItemSymbol {item} />
   {singularName(item)}
+  <ModTag {item} clickable />
 </h1>
 
 <section>
