@@ -4,11 +4,13 @@ import { CddaData, data, loadProgress, mapType, singularName } from "./data";
 import { tileData } from "./tile-data";
 import SearchResults from "./SearchResults.svelte";
 import Catalog from "./Catalog.svelte";
+import ModCategory from "./ModCategory.svelte";
 import dontPanic from "./assets/dont_panic.png";
 import InterpolatedTranslation from "./InterpolatedTranslation.svelte";
 import { t } from "@transifex/native";
 import type { SupportedTypeMapped, SupportedTypesWithMapped } from "./types";
 import throttle from "lodash/throttle";
+import Svelecte from "svelecte";
 
 let item: { type: string; id: string } | null = null;
 
@@ -21,7 +23,7 @@ let builds:
     }[]
   | null = null;
 
-fetch("https://raw.githubusercontent.com/nornagon/cdda-data/main/builds.json")
+fetch(`${process.env.CDDA_DATA_SOURCE}/builds.json`)
   .then((d) => d.json())
   .then((b) => {
     builds = b;
@@ -33,7 +35,10 @@ fetch("https://raw.githubusercontent.com/nornagon/cdda-data/main/builds.json")
 const url = new URL(location.href);
 const version = url.searchParams.get("v") ?? "latest";
 const locale = url.searchParams.get("lang");
-data.setVersion(version, locale);
+
+let enabledMods: string[] = url.searchParams.get("m")?.split(",") ?? [];
+
+data.setVersion(version, locale, enabledMods);
 
 const tilesets = [
   {
@@ -103,7 +108,7 @@ function decodeQueryParam(p: string) {
   return decodeURIComponent(p.replace(/\+/g, " "));
 }
 
-function load() {
+function load(noScroll: boolean = false) {
   const path = location.pathname.slice(import.meta.env.BASE_URL.length - 1);
   let m: RegExpExecArray | null;
   if ((m = /^\/([^\/]+)(?:\/(.+))?$/.exec(path))) {
@@ -115,7 +120,7 @@ function load() {
       item = { type, id: id ? decodeURIComponent(id) : "" };
     }
 
-    window.scrollTo(0, 0);
+    if (!noScroll) window.scrollTo(0, 0);
   } else {
     item = null;
     search = "";
@@ -131,6 +136,28 @@ $: if (item && item.id && $data && $data.byIdMaybe(item.type as any, item.id)) {
   document.title = `${item.type} - The Hitchhiker's Guide to the Cataclysm`;
 } else {
   document.title = "The Hitchhiker's Guide to the Cataclysm";
+}
+
+$: {
+  const modIds = enabledMods;
+  const url = new URL(location.href);
+  if (modIds.length > 0) {
+    url.searchParams.set("m", modIds.join(","));
+  } else {
+    url.searchParams.delete("m");
+  }
+  if (
+    $data &&
+    $data.availableMods.length > 0 &&
+    !$data.modsFetched &&
+    modIds.length > 0
+  ) {
+    location.href = url.toString();
+  } else {
+    replaceState(null, "", url.toString());
+    $data?.setEnabledMods(modIds);
+    load(true);
+  }
 }
 
 let search: string = "";
@@ -332,8 +359,10 @@ function langHref(lang: string, href: string) {
 <main>
   {#if item}
     {#if $data}
-      {#key item}
-        {#if item.id}
+      {#key [item, enabledMods]}
+        {#if item.type === "mod"}
+          <ModCategory id={item.id} data={$data} />
+        {:else if item.id}
           <Thing {item} data={$data} />
         {:else}
           <Catalog type={item.type} data={$data} />
@@ -353,7 +382,7 @@ function langHref(lang: string, href: string) {
     {/if}
   {:else if search}
     {#if $data}
-      {#key search}
+      {#key [search, enabledMods]}
         <SearchResults data={$data} {search} />
       {/key}
     {:else}
@@ -504,6 +533,9 @@ Anyway?`,
         <a href="/conduct{location.search}">{t("Conducts")}</a>
       </li>
       <li><a href="/proficiency{location.search}">{t("Proficiencies")}</a></li>
+      {#if $data && $data.activeMods.length > 1}
+        <li><a href="/mod{location.search}">{t("Mods")}</a></li>
+      {/if}
     </ul>
 
     <InterpolatedTranslation
@@ -589,6 +621,23 @@ Anyway?`,
         <select disabled><option>{t("Loading...")}</option></select>
       {/if}
     </span>
+  </p>
+  <p class="data-options" style="display: flex; align-items: center;">
+    {#if $data && $data.availableMods.length === 0}
+      <em style="color: var(--cata-color-gray)"
+        >{t("Mods data not processed for this version.")}</em>
+    {:else if $data}
+      {t("Mods:")}
+      <Svelecte
+        options={$data.availableMods}
+        strictMode={false}
+        highlightFirstItem={false}
+        multiple
+        bind:value={enabledMods}
+        placeholder={t("No mods selected.")} />
+    {:else}
+      <em style="color: var(--cata-color-gray)">{t("Loading...")}</em>
+    {/if}
   </p>
 </main>
 
