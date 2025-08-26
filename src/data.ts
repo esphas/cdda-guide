@@ -386,6 +386,7 @@ export class CddaData {
         .get(mappedType)!
         .findIndex((x) => x.id === obj.id);
       if (oldIndex !== -1) {
+        // update _byType
         const oldObj = this._byType
           .get(mappedType)!
           .splice(oldIndex, 1, obj)[0];

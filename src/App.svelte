@@ -56,6 +56,10 @@ $effect(() => {
   });
 });
 
+// this is not derived from enabledMods because it's only changed after data has finished loading
+// svelte-ignore state_referenced_locally
+let mods = $state(enabledMods.map((m) => m.id).join(","));
+
 // svelte-ignore state_referenced_locally
 data.setVersion(
   version,
@@ -190,10 +194,6 @@ $effect(() => {
 });
 
 let search: string = $state("");
-
-// this is not derived from enabledMods because it's only changed after data has finished loading
-// svelte-ignore state_referenced_locally
-let mods = $state(enabledMods.map((m) => m.id).join(","));
 
 load();
 
