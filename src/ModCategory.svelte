@@ -13,8 +13,7 @@ interface Props {
 let { id, data }: Props = $props();
 setContext("data", data);
 
-const mods = data
-  .activeMods()
+const mods = data.activeMods
   .filter((mod) => (id ? mod === id : true))
   .map((mod) => data.getModInfo(mod))
   .filter((mod) => mod !== undefined)

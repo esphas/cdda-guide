@@ -10,9 +10,10 @@ interface Props {
 let { item, clickable = false }: Props = $props();
 let data: CddaData = getContext("data");
 
-let display: { id: string; name: string }[] = data.modEnabled()
-  ? getAllObjectSources(item).map((o) => ({ id: o.__mod, name: o.__modName }))
-  : [];
+let display: { id: string; name: string }[] =
+  data.enabledMods.length > 0
+    ? getAllObjectSources(item).map((o) => ({ id: o.__mod, name: o.__modName }))
+    : [];
 </script>
 
 <span class="mod-tag">

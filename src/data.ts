@@ -264,7 +264,7 @@ export const hiddenAttributes = [
 
 export class CddaData {
   _raw: any[];
-  _modlist: Record<string, ModInfo>;
+  _mods: Record<string, ModInfo>;
   _rawMods: Record<string, { info: any; data: any[] }>;
   _modsFetched: boolean;
 
@@ -292,7 +292,7 @@ export class CddaData {
     raw: any[],
     build_number?: string,
     release?: any,
-    modlist?: Record<string, ModInfo>,
+    mods?: Record<string, ModInfo>,
     rawMods?: Record<string, { info: any; data: any[] }>,
     enabledMods?: string[],
   ) {
@@ -300,7 +300,7 @@ export class CddaData {
     this.build_number = build_number;
     // For some reason O—G has the string "mapgen" as one of its objects.
     this._raw = raw.filter((x) => typeof x === "object");
-    this._modlist = modlist ?? {};
+    this._mods = mods ?? {};
     this._rawMods = rawMods ?? {};
     this._modsFetched = rawMods != null;
     this._enabledMods = enabledMods ?? [];
@@ -497,15 +497,15 @@ export class CddaData {
     );
   }
 
-  modsFetched() {
+  get modsFetched() {
     return this._modsFetched;
   }
 
   getModInfo(mod: string): ModInfo | undefined {
-    return this._rawMods[mod]?.info ?? this._modlist[mod];
+    return this._rawMods[mod]?.info ?? this._mods[mod];
   }
 
-  activeMods(): string[] {
+  get activeMods(): string[] {
     return Array.from(this._byModByType.keys());
   }
 
@@ -513,10 +513,14 @@ export class CddaData {
     return this._byModByType.get(mod)?.get(type) ?? [];
   }
 
-  availableMods(): { id: string; label: string }[] {
-    return Object.entries(this._modlist)
+  get availableMods(): { id: string; label: string }[] {
+    return Object.entries(this._mods)
       .map(([id, info]) => ({ id, label: translate(info.name, false, 1) }))
       .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  get enabledMods(): string[] {
+    return this._enabledMods;
   }
 
   setEnabledMods(enabledMods: string[]) {
@@ -525,10 +529,6 @@ export class CddaData {
     }
     this._enabledMods = enabledMods;
     this.initData();
-  }
-
-  modEnabled() {
-    return this._enabledMods.length > 0;
   }
 
   byIdMaybe<TypeName extends keyof SupportedTypesWithMapped>(
@@ -1245,9 +1245,7 @@ export class CddaData {
               count: countsByCharges(item) ? [1, 1] : nCount,
             });
         } else if ("group" in entry) {
-          const group = this.modEnabled()
-            ? this.byIdMaybe("item_group", entry.group)
-            : this.byId("item_group", entry.group);
+          const group = this.byIdMaybe("item_group", entry.group);
           if (!group) continue;
           add(
             ...this.flattenTopLevelItemGroup(group).map((p) =>
@@ -1310,9 +1308,7 @@ export class CddaData {
         if ("item" in entry) {
           add({ id: entry.item, prob: nProb, count: nCount });
         } else if ("group" in entry) {
-          const group = this.modEnabled()
-            ? this.byIdMaybe("item_group", entry.group)
-            : this.byId("item_group", entry.group);
+          const group = this.byIdMaybe("item_group", entry.group);
           if (!group) continue;
           add(
             ...this.flattenTopLevelItemGroup(group).map((p) =>
@@ -2271,7 +2267,7 @@ export const data = {
         ),
     ]);
     let modsJson: Record<string, { info: any; data: any[] }> | undefined;
-    if (dataJson.modlist && enabledMods.length > 0) {
+    if (dataJson.mods && enabledMods.length > 0) {
       modsJson = await retry(() =>
         fetchModsJson(version, (receivedBytes, totalBytes) => {
           totals[3] = totalBytes;
@@ -2292,7 +2288,7 @@ export const data = {
       dataJson.data,
       dataJson.build_number,
       dataJson.release,
-      dataJson.modlist,
+      dataJson.mods,
       modsJson,
       enabledMods,
     );

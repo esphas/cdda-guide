@@ -37,7 +37,6 @@ const url = new URL(location.href);
 const version = url.searchParams.get("v") ?? "latest";
 const locale = url.searchParams.get("lang");
 
-let availableMods = $derived($data?.availableMods() ?? []);
 let enabledMods: { id: string; label: string }[] = $state(
   (url.searchParams.get("m")?.split(",") ?? []).map((id) => ({
     id,
@@ -45,11 +44,11 @@ let enabledMods: { id: string; label: string }[] = $state(
   })),
 );
 $effect(() => {
-  availableMods;
+  $data?.availableMods;
   untrack(() => {
     enabledMods = enabledMods.map(
       (m1) =>
-        availableMods.find((m2) => m2.id === m1.id) ?? {
+        ($data?.availableMods ?? []).find((m2) => m2.id === m1.id) ?? {
           id: m1.id,
           label: m1.label,
         },
@@ -178,8 +177,8 @@ $effect(() => {
   }
   if (
     $data &&
-    $data.availableMods().length > 0 &&
-    !$data.modsFetched() &&
+    $data.availableMods.length > 0 &&
+    !$data.modsFetched &&
     modIds.length > 0
   ) {
     location.href = url.toString();
@@ -578,7 +577,7 @@ Anyway?`,
         <a href="/conduct{location.search}">{t("Conducts")}</a>
       </li>
       <li><a href="/proficiency{location.search}">{t("Proficiencies")}</a></li>
-      {#if $data && $data.activeMods().length > 0}
+      {#if $data && $data.activeMods.length > 0}
         <li><a href="/mod{location.search}">{t("Mods")}</a></li>
       {/if}
     </ul>
@@ -669,14 +668,14 @@ Anyway?`,
     </span>
   </p>
   <p class="data-options" style="display: flex; align-items: center;">
-    {#if $data && availableMods.length === 0}
+    {#if $data && $data.availableMods.length === 0}
       <em style="color: var(--cata-color-gray)"
         >{t("Mods data not processed for this version.")}</em>
     {:else}
       {t("Mods:")}
       <Multiselect
-        loading={availableMods.length === 0}
-        options={availableMods}
+        loading={($data?.availableMods ?? []).length === 0}
+        options={$data?.availableMods ?? []}
         bind:selected={enabledMods}
         placeholder={t("No mods selected.")}
         style="--sms-border: 1px solid #303030; --sms-options-border: 1px solid #303030; --sms-selected-bg: #333; --sms-options-bg: black; --sms-li-active-bg: #333;">
