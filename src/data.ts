@@ -249,7 +249,7 @@ export function asKilograms(string: string | number): string {
   return `${(g / 1000).toFixed(2)} kg`;
 }
 
-interface ModInfo {
+export interface ModInfo {
   id: string;
   name: string;
 }
