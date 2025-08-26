@@ -6,11 +6,7 @@ import ThingLink from "./ThingLink.svelte";
 
 const data = getContext<CddaData>("data");
 
-interface Props {
-  usage: UseFunction;
-}
-
-let { usage }: Props = $props();
+export let usage: UseFunction;
 
 let action =
   usage.type === "__item_action__"
@@ -36,7 +32,9 @@ let description =
         type="item"
         id={tool} />{/each}{#if usage.vitamins?.length}:
     {/if}{/if}{#each usage.vitamins ?? [] as [id, lo, hi], i}{@const v =
-      data.byId("vitamin", id)}{#if i !== 0},
-    {/if}<ThingLink type={v.type} id={v.id} /> ({lo}{hi && hi !== lo
-      ? `–${hi}`
-      : ""}{v.vit_type === "counter" ? " U" : "%"}){/each}){/if}
+      data.byId("vitamin", id)}{#if i !== 0}, {/if}<ThingLink
+      type={v.type}
+      id={v.id} /> ({lo}{hi && hi !== lo ? `–${hi}` : ""}{v.vit_type ===
+    "counter"
+      ? " U"
+      : "%"}){/each}){/if}

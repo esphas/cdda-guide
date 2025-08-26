@@ -4,16 +4,13 @@ import { CddaData, data, loadProgress, mapType, singularName } from "./data";
 import { tileData } from "./tile-data";
 import SearchResults from "./SearchResults.svelte";
 import Catalog from "./Catalog.svelte";
-import ModCategory from "./ModCategory.svelte";
 import dontPanic from "./assets/dont_panic.png";
 import InterpolatedTranslation from "./InterpolatedTranslation.svelte";
 import { t } from "@transifex/native";
 import type { SupportedTypeMapped, SupportedTypesWithMapped } from "./types";
 import throttle from "lodash/throttle";
-import Multiselect from "svelte-multiselect";
-import { untrack } from "svelte";
 
-let item: { type: string; id: string } | null = $state(null);
+let item: { type: string; id: string } | null = null;
 
 let builds:
   | {
@@ -22,9 +19,9 @@ let builds:
       created_at: string;
       langs?: string[];
     }[]
-  | null = $state(null);
+  | null = null;
 
-fetch(`${process.env.CDDA_DATA_SOURCE}/builds.json`)
+fetch("https://raw.githubusercontent.com/nornagon/cdda-data/main/builds.json")
   .then((d) => d.json())
   .then((b) => {
     builds = b;
@@ -36,32 +33,7 @@ fetch(`${process.env.CDDA_DATA_SOURCE}/builds.json`)
 const url = new URL(location.href);
 const version = url.searchParams.get("v") ?? "latest";
 const locale = url.searchParams.get("lang");
-
-let enabledMods: { id: string; label: string }[] = $state(
-  (url.searchParams.get("m")?.split(",") ?? []).map((id) => ({
-    id,
-    label: id,
-  })),
-);
-$effect(() => {
-  $data?.availableMods;
-  untrack(() => {
-    enabledMods = enabledMods.map(
-      (m1) =>
-        ($data?.availableMods ?? []).find((m2) => m2.id === m1.id) ?? {
-          id: m1.id,
-          label: m1.label,
-        },
-    );
-  });
-});
-
-// svelte-ignore state_referenced_locally
-data.setVersion(
-  version,
-  locale,
-  enabledMods.map((mod) => mod.id),
-);
+data.setVersion(version, locale);
 
 const tilesets = [
   {
@@ -120,21 +92,18 @@ function saveTileset(url: string) {
     /* swallow security errors, which can happen when in incognito mode */
   }
 }
-let tilesetUrlTemplate = $state(loadTileset());
-$effect(() => saveTileset(tilesetUrlTemplate));
-
-let tilesetUrl = $derived(
-  $data
-    ? (tilesetUrlTemplate?.replace("{version}", $data.build_number!) ?? null)
-    : null,
-);
-$effect(() => tileData.setURL(tilesetUrl));
+let tilesetUrlTemplate = loadTileset();
+$: saveTileset(tilesetUrlTemplate);
+$: tilesetUrl = $data
+  ? tilesetUrlTemplate?.replace("{version}", $data.build_number!) ?? null
+  : null;
+$: tileData.setURL(tilesetUrl);
 
 function decodeQueryParam(p: string) {
   return decodeURIComponent(p.replace(/\+/g, " "));
 }
 
-function load(noScroll: boolean = false) {
+function load() {
   const path = location.pathname.slice(import.meta.env.BASE_URL.length - 1);
   let m: RegExpExecArray | null;
   if ((m = /^\/([^\/]+)(?:\/(.+))?$/.exec(path))) {
@@ -146,49 +115,25 @@ function load(noScroll: boolean = false) {
       item = { type, id: id ? decodeURIComponent(id) : "" };
     }
 
-    if (!noScroll) window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
   } else {
     item = null;
     search = "";
   }
 }
 
-$effect(() => {
-  if (item && item.id && $data && $data.byIdMaybe(item.type as any, item.id)) {
-    const it = $data.byId(item.type as any, item.id);
-    document.title = `${singularName(
-      it,
-    )} - The Hitchhiker's Guide to the Cataclysm`;
-  } else if (item && !item.id && item.type) {
-    document.title = `${item.type} - The Hitchhiker's Guide to the Cataclysm`;
-  } else {
-    document.title = "The Hitchhiker's Guide to the Cataclysm";
-  }
-});
+$: if (item && item.id && $data && $data.byIdMaybe(item.type as any, item.id)) {
+  const it = $data.byId(item.type as any, item.id);
+  document.title = `${singularName(
+    it
+  )} - The Hitchhiker's Guide to the Cataclysm`;
+} else if (item && !item.id && item.type) {
+  document.title = `${item.type} - The Hitchhiker's Guide to the Cataclysm`;
+} else {
+  document.title = "The Hitchhiker's Guide to the Cataclysm";
+}
 
-$effect(() => {
-  const modIds = enabledMods.map((mod) => mod.id);
-  const url = new URL(location.href);
-  if (modIds.length > 0) {
-    url.searchParams.set("m", modIds.join(","));
-  } else {
-    url.searchParams.delete("m");
-  }
-  if (
-    $data &&
-    $data.availableMods.length > 0 &&
-    !$data.modsFetched &&
-    modIds.length > 0
-  ) {
-    location.href = url.toString();
-  } else {
-    replaceState(null, "", url.toString());
-    $data?.setEnabledMods(modIds);
-    load(true);
-  }
-});
-
-let search: string = $state("");
+let search: string = "";
 
 load();
 
@@ -207,7 +152,7 @@ const clearItem = () => {
       "",
       import.meta.env.BASE_URL +
         (search ? "search/" + encodeURIComponent(search) : "") +
-        location.search,
+        location.search
     );
   else
     replaceState(
@@ -215,7 +160,7 @@ const clearItem = () => {
       "",
       import.meta.env.BASE_URL +
         (search ? "search/" + encodeURIComponent(search) : "") +
-        location.search,
+        location.search
     );
   item = null;
 };
@@ -240,7 +185,7 @@ window.addEventListener("popstate", () => {
   load();
 });
 
-let deferredPrompt: any = $state();
+let deferredPrompt: any;
 window.addEventListener("beforeinstallprompt", (e) => {
   deferredPrompt = e;
 });
@@ -316,12 +261,12 @@ async function getRandomPage() {
   const items = d
     .all()
     .filter(
-      (x) => "id" in x && randomableItemTypes.has(mapType(x.type)),
+      (x) => "id" in x && randomableItemTypes.has(mapType(x.type))
     ) as (SupportedTypeMapped & { id: string })[];
   return items[(Math.random() * items.length) | 0];
 }
 
-let randomPage: string | null = $state(null);
+let randomPage: string | null = null;
 function newRandomPage() {
   getRandomPage().then((r) => {
     randomPage = `${import.meta.env.BASE_URL}${mapType(r.type)}/${r.id}${
@@ -333,11 +278,8 @@ newRandomPage();
 
 // This is one character behind the actual search value, because
 // of the throttle, but eh, it's good enough.
-let currentHref = $derived.by(() => {
-  item;
-  search;
-  return location.href;
-});
+let currentHref = location.href;
+$: item, search, (currentHref = location.href);
 
 function langHref(lang: string, href: string) {
   const u = new URL(href);
@@ -346,13 +288,13 @@ function langHref(lang: string, href: string) {
 }
 </script>
 
-<svelte:window onclick={maybeNavigate} onkeydown={maybeFocusSearch} />
+<svelte:window on:click={maybeNavigate} on:keydown={maybeFocusSearch} />
 
 <svelte:head>
   {#if builds}
     {@const build_number =
       version === "latest" ? builds[0].build_number : version}
-    {#each [...(builds.find((b) => b.build_number === build_number)?.langs ?? [])].sort( (a, b) => a.localeCompare(b), ) as lang}
+    {#each [...(builds.find((b) => b.build_number === build_number)?.langs ?? [])].sort( (a, b) => a.localeCompare(b) ) as lang}
       <link
         rel="alternate"
         hreflang={lang}
@@ -364,11 +306,11 @@ function langHref(lang: string, href: string) {
 <header>
   <nav>
     <div class="title">
-      <!-- svelte-ignore a11y_invalid_attribute -->
+      <!-- svelte-ignore a11y-invalid-attribute -->
       <strong>
         <a
           href={import.meta.env.BASE_URL + location.search}
-          onclick={() => (search = "")}
+          on:click={() => (search = "")}
           ><span class="wide">Hitchhiker's Guide to the Cataclysm</span><span
             class="narrow">HHG</span
           ></a>
@@ -382,7 +324,7 @@ function langHref(lang: string, href: string) {
         })}
         type="search"
         bind:value={search}
-        oninput={clearItem}
+        on:input={clearItem}
         id="search" />
     </div>
   </nav>
@@ -390,10 +332,8 @@ function langHref(lang: string, href: string) {
 <main>
   {#if item}
     {#if $data}
-      {#key [item, enabledMods]}
-        {#if item.type === "mod"}
-          <ModCategory id={item.id} data={$data} />
-        {:else if item.id}
+      {#key item}
+        {#if item.id}
           <Thing {item} data={$data} />
         {:else}
           <Catalog type={item.type} data={$data} />
@@ -413,7 +353,7 @@ function langHref(lang: string, href: string) {
     {/if}
   {:else if search}
     {#if $data}
-      {#key [search, enabledMods]}
+      {#key search}
         <SearchResults data={$data} {search} />
       {/key}
     {:else}
@@ -449,28 +389,28 @@ files in the game itself.`,
             link_flashlight: "{link_flashlight}",
             link_table: "{link_table}",
             link_zombie: "{link_zombie}",
-          },
-        )}>
-        {#snippet contents(name: string)}
-          {#if name === "hhg"}
-            <strong>Hitchhiker's Guide to the Cataclysm</strong>
-          {:else if name === "link_cdda"}
-            <a href="https://cataclysmdda.org/">Cataclysm: Dark Days Ahead</a>
-          {:else if name === "link_flashlight"}
-            <a href="{import.meta.env.BASE_URL}item/flashlight{location.search}"
-              >{t("flashlight", { _comment: "Item name" })}</a>
-          {:else if name === "link_table"}
-            <a
-              href="{import.meta.env
-                .BASE_URL}furniture/f_table{location.search}"
-              >{t("table", { _comment: "Furniture" })}</a>
-          {:else if name === "link_zombie"}
-            <a
-              href="{import.meta.env
-                .BASE_URL}monster/mon_zombie{location.search}"
-              >{t("zombie", { _comment: "Monster name" })}</a>
-          {/if}
-        {/snippet}
+          }
+        )}
+        slot0="hhg"
+        slot1="link_cdda"
+        slot2="link_flashlight"
+        slot3="link_table"
+        slot4="link_zombie">
+        <strong slot="0">Hitchhiker's Guide to the Cataclysm</strong>
+        <a slot="1" href="https://cataclysmdda.org/"
+          >Cataclysm: Dark Days Ahead</a>
+        <a
+          slot="2"
+          href="{import.meta.env.BASE_URL}item/flashlight{location.search}"
+          >{t("flashlight", { _comment: "Item name" })}</a>
+        <a
+          slot="3"
+          href="{import.meta.env.BASE_URL}furniture/f_table{location.search}"
+          >{t("table", { _comment: "Furniture" })}</a>
+        <a
+          slot="4"
+          href="{import.meta.env.BASE_URL}monster/mon_zombie{location.search}"
+          >{t("zombie", { _comment: "Monster name" })}</a>
       </InterpolatedTranslation>
     </p>
     <p>
@@ -482,23 +422,20 @@ access, as long as you've visited it once before.`)}
         <InterpolatedTranslation
           str={t(
             `It's also {installable_button}, so you can pop it out of your browser and use it like a regular app.`,
-            { installable_button: "{installable_button}" },
-          )}>
-          {#snippet contents(name: string)}
-            {#if name === "installable_button"}
-              <button
-                class="disclosure"
-                onclick={(e) => {
-                  e.preventDefault();
-                  deferredPrompt.prompt();
-                }}
-                >{t("installable", {
-                  _context: "Front page",
-                  _comment:
-                    "Meaning, install the Hitchhiker's Guide app itself.",
-                })}</button>
-            {/if}
-          {/snippet}
+            { installable_button: "{installable_button}" }
+          )}
+          slot0="installable_button">
+          <button
+            slot="0"
+            class="disclosure"
+            on:click={(e) => {
+              e.preventDefault();
+              deferredPrompt.prompt();
+            }}
+            >{t("installable", {
+              _context: "Front page",
+              _comment: "Meaning, install the Hitchhiker's Guide app itself.",
+            })}</button>
         </InterpolatedTranslation>
       {/if}
     </p>
@@ -512,7 +449,7 @@ Anyway?`,
         {
           _comment:
             "This is a quote from the Hitchhiker's Guide to the Galaxy, by Douglas Adams",
-        },
+        }
       )}
     </p>
     <p>
@@ -523,18 +460,15 @@ Anyway?`,
             link_github: "{link_github}",
             link_nornagon: "{link_nornagon}",
             link_file_an_issue: "{link_file_an_issue}",
-          },
-        )}>
-        {#snippet contents(name: string)}
-          {#if name === "link_github"}
-            <a href="https://github.com/nornagon/cdda-guide">GitHub</a>
-          {:else if name === "link_nornagon"}
-            <a href="https://www.nornagon.net">nornagon</a>
-          {:else if name === "link_file_an_issue"}
-            <a href="https://github.com/nornagon/cdda-guide/issues"
-              >{t("file an issue")}</a>
-          {/if}
-        {/snippet}
+          }
+        )}
+        slot0="link_github"
+        slot1="link_nornagon"
+        slot2="link_file_an_issue">
+        <a slot="0" href="https://github.com/nornagon/cdda-guide">GitHub</a>
+        <a slot="1" href="https://www.nornagon.net">nornagon</a>
+        <a slot="2" href="https://github.com/nornagon/cdda-guide/issues"
+          >{t("file an issue")}</a>
       </InterpolatedTranslation>
     </p>
 
@@ -543,15 +477,13 @@ Anyway?`,
         <InterpolatedTranslation
           str={t(
             `You can help translate the Guide into your language on {link_transifex}.`,
-            { link_transifex: "{link_transifex}" },
-          )}>
-          {#snippet contents(name: string)}
-            {#if name === "link_transifex"}
-              <a
-                href="https://www.transifex.com/nornagon/the-hitchhikers-guide-to-the-cataclysm/"
-                >Transifex</a>
-            {/if}
-          {/snippet}
+            { link_transifex: "{link_transifex}" }
+          )}
+          slot0="link_transifex">
+          <a
+            slot="0"
+            href="https://www.transifex.com/nornagon/the-hitchhikers-guide-to-the-cataclysm/"
+            >Transifex</a>
         </InterpolatedTranslation>
       </p>
     {/if}
@@ -572,21 +504,15 @@ Anyway?`,
         <a href="/conduct{location.search}">{t("Conducts")}</a>
       </li>
       <li><a href="/proficiency{location.search}">{t("Proficiencies")}</a></li>
-      {#if $data && $data.activeMods.length > 1}
-        <li><a href="/mod{location.search}">{t("Mods")}</a></li>
-      {/if}
     </ul>
 
     <InterpolatedTranslation
       str={t(`Or visit a {link_random_page}.`, {
         link_random_page: "{link_random_page}",
-      })}>
-      {#snippet contents(name: string)}
-        {#if name === "link_random_page"}
-          <a href={randomPage} onclick={() => setTimeout(newRandomPage)}
-            >{t("random page")}</a>
-        {/if}
-      {/snippet}
+      })}
+      slot0="link_random_page">
+      <a slot="0" href={randomPage} on:click={() => setTimeout(newRandomPage)}
+        >{t("random page")}</a>
     </InterpolatedTranslation>
   {/if}
 
@@ -594,10 +520,11 @@ Anyway?`,
     {t("Version:")}
     {#if $data || builds}
       {#if builds}
+        <!-- svelte-ignore a11y-no-onchange -->
         <select
           value={$data?.build_number ??
             (version === "latest" ? builds[0].build_number : version)}
-          onchange={(e) => {
+          on:change={(e) => {
             const url = new URL(location.href);
             const buildNumber = e.currentTarget.value;
             if (buildNumber === builds?.[0].build_number)
@@ -627,9 +554,10 @@ Anyway?`,
     {/if}
     <span style="white-space: nowrap">
       {t("Tileset:")}
+      <!-- svelte-ignore a11y-no-onchange -->
       <select
         value={tilesetUrlTemplate}
-        onchange={(e) => {
+        on:change={(e) => {
           tilesetUrlTemplate = e.currentTarget.value;
         }}>
         <option value="">None (ASCII)</option>
@@ -645,7 +573,7 @@ Anyway?`,
           version === "latest" ? builds[0].build_number : version}
         <select
           value={locale || "en"}
-          onchange={(e) => {
+          on:change={(e) => {
             const url = new URL(location.href);
             const lang = e.currentTarget.value;
             if (lang === "en") url.searchParams.delete("lang");
@@ -653,7 +581,7 @@ Anyway?`,
             location.href = url.toString();
           }}>
           <option value="en">English</option>
-          {#each [...(builds.find((b) => b.build_number === build_number)?.langs ?? [])].sort( (a, b) => a.localeCompare(b), ) as lang}
+          {#each [...(builds.find((b) => b.build_number === build_number)?.langs ?? [])].sort( (a, b) => a.localeCompare(b) ) as lang}
             <option value={lang}>{getLanguageName(lang)}</option>
           {/each}
         </select>
@@ -661,21 +589,6 @@ Anyway?`,
         <select disabled><option>{t("Loading...")}</option></select>
       {/if}
     </span>
-  </p>
-  <p class="data-options" style="display: flex; align-items: center;">
-    {#if $data && $data.availableMods.length === 0}
-      <em style="color: var(--cata-color-gray)"
-        >{t("Mods data not processed for this version.")}</em>
-    {:else}
-      {t("Mods:")}
-      <Multiselect
-        loading={($data?.availableMods ?? []).length === 0}
-        options={$data?.availableMods ?? []}
-        bind:selected={enabledMods}
-        placeholder={t("No mods selected.")}
-        style="--sms-border: 1px solid #303030; --sms-options-border: 1px solid #303030; --sms-selected-bg: #333; --sms-options-bg: black; --sms-li-active-bg: #333;">
-      </Multiselect>
-    {/if}
   </p>
 </main>
 

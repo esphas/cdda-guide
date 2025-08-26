@@ -7,13 +7,8 @@ import { CddaData, singular, singularName } from "../data";
 import type { Bionic } from "../types";
 import MutationList from "./MutationList.svelte";
 import ThingLink from "./ThingLink.svelte";
-import ModTag from "./ModTag.svelte";
 
-interface Props {
-  item: Bionic;
-}
-
-let { item }: Props = $props();
+export let item: Bionic;
 const data = getContext<CddaData>("data");
 const _context = "Bionic";
 
@@ -23,7 +18,7 @@ const containingBionics = data
   .filter((x) => x.id && x.included_bionics?.includes(item.id));
 </script>
 
-<h1>{t("Bionic")}: {singularName(item)} <ModTag {item} clickable /></h1>
+<h1>{t("Bionic")}: {singularName(item)}</h1>
 <section>
   <h1>{t("General", { _context, _comment: "Section heading" })}</h1>
   <dl>
@@ -206,7 +201,7 @@ const containingBionics = data
       <dd>
         <MutationList
           mutations={item.canceled_mutations.map((id) =>
-            data.byId("mutation", id),
+            data.byId("mutation", id)
           )} />
       </dd>
     {/if}

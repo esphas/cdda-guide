@@ -6,13 +6,8 @@ import { getContext } from "svelte";
 import LimitedList from "../LimitedList.svelte";
 import { t } from "@transifex/native";
 import ItemSymbol from "./item/ItemSymbol.svelte";
-import ModTag from "./ModTag.svelte";
 
-interface Props {
-  item: AddictionType;
-}
-
-let { item }: Props = $props();
+export let item: AddictionType;
 
 const data = getContext<CddaData>("data");
 const _context = "Addiction Type";
@@ -23,15 +18,12 @@ const itemsWithAddictionType = data
     (i) =>
       i.id &&
       "addiction_type" in i &&
-      normalizeAddictionTypes(i).some((a) => a.addiction === item.id),
+      normalizeAddictionTypes(i).some((a) => a.addiction === item.id)
   )
   .sort(byName);
 </script>
 
-<h1>
-  {t("Addiction Type")}: {singular(item.type_name)}
-  <ModTag {item} clickable />
-</h1>
+<h1>{t("Addiction Type")}: {singular(item.type_name)}</h1>
 <section>
   <dl>
     <dt>{t("Effect Name", { _context })}</dt>
@@ -43,11 +35,9 @@ const itemsWithAddictionType = data
 {#if itemsWithAddictionType.length}
   <section>
     <h1>{t("Items Containing", { _context })}</h1>
-    <LimitedList items={itemsWithAddictionType}>
-      {#snippet children({ item: i })}
-        <ItemSymbol item={i} />
-        <ThingLink id={i.id} type="item" />
-      {/snippet}
+    <LimitedList items={itemsWithAddictionType} let:item={i}>
+      <ItemSymbol item={i} />
+      <ThingLink id={i.id} type="item" />
     </LimitedList>
   </section>
 {/if}

@@ -14,24 +14,19 @@ import ThingLink from "./ThingLink.svelte";
 import { t } from "@transifex/native";
 import OvermapAppearance from "./item/OvermapAppearance.svelte";
 import ItemTable from "./item/ItemTable.svelte";
-import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 
-interface Props {
-  item: OvermapSpecial;
-}
-
-let { item }: Props = $props();
+export let item: OvermapSpecial;
 const mevels =
   item.subtype === "mutable"
     ? [0]
-    : (item.overmaps?.map((om) => om.point[2]) ?? [0]);
+    : item.overmaps?.map((om) => om.point[2]) ?? [0];
 const minLevel = Math.min(...mevels);
 const maxLevel = Math.max(...mevels);
 const levels = Array.from(
   { length: maxLevel - minLevel + 1 },
-  (_, i) => i + minLevel,
+  (_, i) => i + minLevel
 );
 
 const lookalikeIds = (
@@ -40,7 +35,7 @@ const lookalikeIds = (
 
 const _context = "Overmap Special";
 
-const layerElements: HTMLElement[] = $state([]);
+const layerElements: HTMLElement[] = [];
 
 onMount(() => {
   layerElements.forEach((el) => {
@@ -62,7 +57,7 @@ onMount(() => {
 });
 </script>
 
-<h1>{singularName(item)} <ModTag {item} clickable /></h1>
+<h1>{singularName(item)}</h1>
 
 <section>
   {#if item.subtype === "mutable"}
@@ -139,7 +134,7 @@ onMount(() => {
 <ItemTable
   type="furniture"
   loot={lootForOmSpecial(data, item, (mg) =>
-    getFurnitureForMapgen(data, mg),
+    getFurnitureForMapgen(data, mg)
   )} />
 
 <style>

@@ -3,11 +3,7 @@ import { t } from "@transifex/native";
 import type { BionicSlot, ItemBasicInfo } from "../../types";
 import ThingLink from "../ThingLink.svelte";
 
-interface Props {
-  item: ItemBasicInfo & BionicSlot;
-}
-
-let { item }: Props = $props();
+export let item: ItemBasicInfo & BionicSlot;
 
 const _context = "Item Bionic Info";
 </script>

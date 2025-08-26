@@ -6,28 +6,22 @@ import { getContext } from "svelte";
 import { CddaData, plural, singular, singularName } from "../data";
 import type { Achievement } from "../types";
 import ThingLink from "./ThingLink.svelte";
-import ModTag from "./ModTag.svelte";
 
-interface Props {
-  item: Achievement;
-}
-
-let { item }: Props = $props();
+export let item: Achievement;
 const data = getContext<CddaData>("data");
 const _context = "Achievement";
 
 const unlocks = data
   .byType("achievement")
   .filter(
-    (x) => x.id !== item.id && [x.hidden_by ?? []].flat().includes(item.id),
+    (x) => x.id !== item.id && [x.hidden_by ?? []].flat().includes(item.id)
   );
 </script>
 
 <h1>
   {item.type === "achievement" ? "Achievement" : "Conduct"}: {singularName(
-    item,
+    item
   )}
-  <ModTag {item} clickable />
 </h1>
 
 <section>

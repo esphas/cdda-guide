@@ -6,11 +6,7 @@ import LimitedList from "../../LimitedList.svelte";
 import ThingLink from "../ThingLink.svelte";
 import ItemSymbol from "./ItemSymbol.svelte";
 
-interface Props {
-  item_id: string;
-}
-
-let { item_id }: Props = $props();
+export let item_id: string;
 
 let data = getContext<CddaData>("data");
 const forageGroups = {
@@ -26,7 +22,7 @@ const forageGroups = {
 const forageable = Object.entries(forageGroups)
   .map(([season, group_id]) => {
     const flattened = data.flattenTopLevelItemGroup(
-      data.byId("item_group", group_id),
+      data.byId("item_group", group_id)
     );
     // TODO: probability is a bit messy here.
     return [season, flattened.find((f) => f.id === item_id)?.prob] as const;
@@ -40,16 +36,14 @@ const forageSources = data
 {#if forageable.length}
   <section>
     <h1>{t("Forage", { _context: "Obtaining" })}</h1>
-    <LimitedList items={forageSources}>
-      {#snippet children({ item })}
-        <ItemSymbol {item} />
-        <ThingLink type="terrain" id={item.id} /> in
-        <ul class="comma-separated or">
-          {#each forageable as [season, _prob]}
-            <li>{season}</li>
-          {/each}
-        </ul>
-      {/snippet}
+    <LimitedList items={forageSources} let:item>
+      <ItemSymbol {item} />
+      <ThingLink type="terrain" id={item.id} /> in
+      <ul class="comma-separated or">
+        {#each forageable as [season, _prob]}
+          <li>{season}</li>
+        {/each}
+      </ul>
     </LimitedList>
   </section>
 {/if}

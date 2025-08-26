@@ -13,13 +13,8 @@ import {
 } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
 import ThingLink from "./ThingLink.svelte";
-import ModTag from "./ModTag.svelte";
 
-interface Props {
-  item: ToolQuality;
-}
-
-let { item }: Props = $props();
+export let item: ToolQuality;
 
 let data = getContext<CddaData>("data");
 const _context = "Tool Quality";
@@ -48,7 +43,7 @@ for (const it of data.byType("item")) {
   }
 }
 const toolsWithQualityByLevelList = [...toolsWithQualityByLevel.entries()].sort(
-  (a, b) => a[0] - b[0],
+  (a, b) => a[0] - b[0]
 );
 toolsWithQualityByLevelList.forEach(([, tools]) => {
   tools.sort(byName);
@@ -97,13 +92,13 @@ for (const [level, set] of recipesUsingQualitySet)
     level,
     [...set].sort((a, b) =>
       singularName(data.byId("item", a)).localeCompare(
-        singularName(data.byId("item", b)),
-      ),
-    ),
+        singularName(data.byId("item", b))
+      )
+    )
   );
 
 const recipesUsingQualityList = [...recipesUsingQuality.entries()].sort(
-  (a, b) => a[0] - b[0],
+  (a, b) => a[0] - b[0]
 );
 
 const constructionsUsingQualityByLevel = new Map<number, Construction[]>();
@@ -125,16 +120,13 @@ const constructionsUsingQualityByLevelList = [
 constructionsUsingQualityByLevelList.forEach(([, constructions]) => {
   constructions.sort((a, b) =>
     singularName(data.byId("construction_group", a.group)).localeCompare(
-      singularName(data.byId("construction_group", b.group)),
-    ),
+      singularName(data.byId("construction_group", b.group))
+    )
   );
 });
 </script>
 
-<h1>
-  {t("Quality", { _comment: "Tool Quality" })}: {singularName(item)}
-  <ModTag {item} clickable />
-</h1>
+<h1>{t("Quality", { _comment: "Tool Quality" })}: {singularName(item)}</h1>
 {#if item.usages}
   <section>
     <h1>{t("Usages", { _context })}</h1>
@@ -162,11 +154,9 @@ constructionsUsingQualityByLevelList.forEach(([, constructions]) => {
           {t("Level {level}", { level, _context })}
         </dt>
         <dd>
-          <LimitedList items={tools} limit={20}>
-            {#snippet children({ item })}
-              <ItemSymbol {item} />
-              <ThingLink type="item" id={item.id} />
-            {/snippet}
+          <LimitedList items={tools} limit={20} let:item>
+            <ItemSymbol {item} />
+            <ThingLink type="item" id={item.id} />
           </LimitedList>
         </dd>
       {/each}
@@ -182,11 +172,9 @@ constructionsUsingQualityByLevelList.forEach(([, constructions]) => {
           {t("Level {level}", { level, _context })}
         </dt>
         <dd>
-          <LimitedList items={vparts.sort(byName)} limit={20}>
-            {#snippet children({ item })}
-              <ItemSymbol {item} />
-              <ThingLink type="vehicle_part" id={item.id} />
-            {/snippet}
+          <LimitedList items={vparts.sort(byName)} limit={20} let:item>
+            <ItemSymbol {item} />
+            <ThingLink type="vehicle_part" id={item.id} />
           </LimitedList>
         </dd>
       {/each}
@@ -202,11 +190,9 @@ constructionsUsingQualityByLevelList.forEach(([, constructions]) => {
           {t("Level {level}", { level, _context })}
         </dt>
         <dd>
-          <LimitedList items={recipes} limit={20}>
-            {#snippet children({ item })}
-              <ItemSymbol item={data.byId("item", item)} />
-              <ThingLink type="item" id={item} />
-            {/snippet}
+          <LimitedList items={recipes} let:item limit={20}>
+            <ItemSymbol item={data.byId("item", item)} />
+            <ThingLink type="item" id={item} />
           </LimitedList>
         </dd>
       {/each}
@@ -222,20 +208,18 @@ constructionsUsingQualityByLevelList.forEach(([, constructions]) => {
           {t("Level {level}", { level, _context })}
         </dt>
         <dd>
-          <LimitedList items={constructions}>
-            {#snippet children({ item: f })}
-              <ThingLink id={f.group} type="construction_group" />
-              {#if f.pre_terrain}
-                on {#each [f.pre_terrain].flat() as preTerrain, i}
-                  {@const itemType = preTerrain.startsWith("f_")
-                    ? "furniture"
-                    : "terrain"}
-                  {#if i !== 0}{i18n.__(" OR ")}{/if}
-                  <ItemSymbol item={data.byId(itemType, preTerrain)} />
-                  <ThingLink type={itemType} id={preTerrain} />
-                {/each}
-              {/if}
-            {/snippet}
+          <LimitedList items={constructions} let:item={f}>
+            <ThingLink id={f.group} type="construction_group" />
+            {#if f.pre_terrain}
+              on {#each [f.pre_terrain].flat() as preTerrain, i}
+                {@const itemType = preTerrain.startsWith("f_")
+                  ? "furniture"
+                  : "terrain"}
+                {#if i !== 0}{i18n.__(" OR ")}{/if}
+                <ItemSymbol item={data.byId(itemType, preTerrain)} />
+                <ThingLink type={itemType} id={preTerrain} />
+              {/each}
+            {/if}
           </LimitedList>
         </dd>
       {/each}

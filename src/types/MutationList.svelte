@@ -9,17 +9,13 @@ let data = getContext<CddaData>("data");
 const normalizeStringList = (list: string | string[] | undefined) =>
   list ? (Array.isArray(list) ? list : [list]) : [];
 
-interface Props {
-  mutations: Mutation[];
-}
-
-let { mutations }: Props = $props();
+export let mutations: Mutation[];
 const allPrereqs = (m: Mutation) =>
   normalizeStringList(m.prereqs)
     .concat(normalizeStringList(m.prereqs2))
     .concat(normalizeStringList(m.threshreq));
 let sortedMutations = topologicalSortComponentsByRank(mutations, (m) =>
-  allPrereqs(m).map((x) => data.byId("mutation", x)),
+  allPrereqs(m).map((x) => data.byId("mutation", x))
 ).sort((a, b) => singularName(a[0][0]).localeCompare(singularName(b[0][0])));
 </script>
 
@@ -29,8 +25,7 @@ let sortedMutations = topologicalSortComponentsByRank(mutations, (m) =>
       {#each rank as mg, i}
         {#if i > 0}&nbsp;→{/if}
         {#each mg as m, i}
-          {#if i > 0},
-          {/if}
+          {#if i > 0}, {/if}
           <ThingLink id={m.id} type="mutation" />
         {/each}
       {/each}

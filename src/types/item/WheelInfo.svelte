@@ -5,11 +5,7 @@ import type { WheelSlot } from "../../types";
 
 const _context = "Item Wheel Info";
 
-interface Props {
-  item: WheelSlot;
-}
-
-let { item }: Props = $props();
+export let item: WheelSlot;
 </script>
 
 <section>

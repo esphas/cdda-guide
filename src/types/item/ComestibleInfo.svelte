@@ -10,11 +10,7 @@ import {
 } from "../../data";
 import { getContext } from "svelte";
 
-interface Props {
-  item: ComestibleSlot;
-}
-
-let { item }: Props = $props();
+export let item: ComestibleSlot;
 
 const _context = "Item Comestible Info";
 
@@ -70,14 +66,14 @@ const data = getContext<CddaData>("data");
               typeof rdapct === "string"
                 ? parseMass(rdapct)
                 : massPerUnit
-                  ? (rdapct / 100) * unitsPerDay * massPerUnit
-                  : null}
+                ? (rdapct / 100) * unitsPerDay * massPerUnit
+                : null}
             {@const rda =
               typeof rdapct === "number"
                 ? rdapct
                 : mass && massPerUnit
-                  ? (mass / massPerUnit / unitsPerDay) * 100
-                  : null}
+                ? (mass / massPerUnit / unitsPerDay) * 100
+                : null}
             <dt>
               <ThingLink id={vitamin} type="vitamin" />
             </dt>

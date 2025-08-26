@@ -9,11 +9,7 @@ import ThingLink from "../ThingLink.svelte";
 import RequirementDataTools from "./RequirementDataTools.svelte";
 
 const _context = "Requirement";
-interface Props {
-  requirement: RequirementData & { using?: Recipe["using"] };
-}
-
-let { requirement }: Props = $props();
+export let requirement: RequirementData & { using?: Recipe["using"] };
 
 const data = getContext<CddaData>("data");
 

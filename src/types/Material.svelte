@@ -14,15 +14,10 @@ import type { Material } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
 
 import ThingLink from "./ThingLink.svelte";
-import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 
-interface Props {
-  item: Material;
-}
-
-let { item }: Props = $props();
+export let item: Material;
 const _context = "Material";
 
 function isStrings<T>(array: string[] | T[]): array is string[] {
@@ -36,18 +31,18 @@ let itemsWithMaterial = data
       i.material == null
         ? []
         : typeof i.material === "string"
-          ? [i.material]
-          : Array.isArray(i.material)
-            ? isStrings(i.material)
-              ? i.material
-              : i.material.map((m) => m.type)
-            : Object.keys(i.material);
+        ? [i.material]
+        : Array.isArray(i.material)
+        ? isStrings(i.material)
+          ? i.material
+          : i.material.map((m) => m.type)
+        : Object.keys(i.material);
     return i.id && normalizedMaterial.some((m) => m === item.id);
   })
   .sort(byName);
 </script>
 
-<h1>{t("Material")}: {singularName(item)} <ModTag {item} clickable /></h1>
+<h1>{t("Material")}: {singularName(item)}</h1>
 <section>
   <h1>{t("Properties", { _context })}</h1>
   <dl>
@@ -120,11 +115,9 @@ let itemsWithMaterial = data
 {#if itemsWithMaterial.length}
   <section>
     <h1>{t("Items Made From {material}", { material: singularName(item) })}</h1>
-    <LimitedList items={itemsWithMaterial}>
-      {#snippet children({ item })}
-        <ItemSymbol {item} />
-        <ThingLink id={item.id} type="item" />
-      {/snippet}
+    <LimitedList items={itemsWithMaterial} let:item>
+      <ItemSymbol {item} />
+      <ThingLink id={item.id} type="item" />
     </LimitedList>
   </section>
 {/if}

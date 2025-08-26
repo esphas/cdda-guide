@@ -7,13 +7,8 @@ import LimitedList from "../LimitedList.svelte";
 import type { WeaponCategory } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
 import ThingLink from "./ThingLink.svelte";
-import ModTag from "./ModTag.svelte";
 
-interface Props {
-  item: WeaponCategory;
-}
-
-let { item }: Props = $props();
+export let item: WeaponCategory;
 
 const data = getContext<CddaData>("data");
 
@@ -30,18 +25,13 @@ const martialArts = data
 martialArts.sort(byName);
 </script>
 
-<h1>
-  {t("Weapon Category")}: {singularName(item)}
-  <ModTag {item} clickable />
-</h1>
+<h1>{t("Weapon Category")}: {singularName(item)}</h1>
 <section>
   <h1>{t("Weapons", { _context: "Martial Art" })}</h1>
   {#if itemsInCategory.length}
-    <LimitedList items={itemsInCategory}>
-      {#snippet children({ item })}
-        <ItemSymbol {item} />
-        <ThingLink type="item" id={item.id} />
-      {/snippet}
+    <LimitedList items={itemsInCategory} let:item>
+      <ItemSymbol {item} />
+      <ThingLink type="item" id={item.id} />
     </LimitedList>
   {:else}
     <p style="color: var(--cata-color-gray)">
@@ -53,11 +43,9 @@ martialArts.sort(byName);
 <section>
   <h1>{t("Martial Arts")}</h1>
   {#if martialArts.length}
-    <LimitedList items={martialArts}>
-      {#snippet children({ item })}
-        <ItemSymbol {item} />
-        <ThingLink type="martial_art" id={item.id} />
-      {/snippet}
+    <LimitedList items={martialArts} let:item>
+      <ItemSymbol {item} />
+      <ThingLink type="martial_art" id={item.id} />
     </LimitedList>
   {:else}
     <p style="color: var(--cata-color-gray)">

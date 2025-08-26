@@ -9,16 +9,11 @@ import { t } from "@transifex/native";
 import TerFurnActivity from "./TerFurnActivity.svelte";
 import FurnitureSpawnedIn from "./item/FurnitureSpawnedIn.svelte";
 import LimitedList from "../LimitedList.svelte";
-import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 const _context = "Terrain / Furniture";
 
-interface Props {
-  item: Furniture;
-}
-
-let { item }: Props = $props();
+export let item: Furniture;
 
 const deconstruct = item.deconstruct?.items
   ? data.flattenItemGroup({
@@ -63,11 +58,11 @@ for (const { seasons, id } of item.harvest_by_season ?? []) {
 const seasonOrder = ["winter", "spring", "summer", "autumn"];
 const harvestBySeasonList = [...harvestBySeason.entries()];
 harvestBySeasonList.sort(
-  (a, b) => seasonOrder.indexOf(a[0]) - seasonOrder.indexOf(b[0]),
+  (a, b) => seasonOrder.indexOf(a[0]) - seasonOrder.indexOf(b[0])
 );
 </script>
 
-<h1><ItemSymbol {item} /> {singularName(item)} <ModTag {item} clickable /></h1>
+<h1><ItemSymbol {item} /> {singularName(item)}</h1>
 
 <section>
   <h1>{t("General", { _context })}</h1>
@@ -180,7 +175,7 @@ harvestBySeasonList.sort(
                         <li>
                           <ItemSymbol item={data.byId("item", id)} />
                           <ThingLink type="item" {id} /> ({(prob * 100).toFixed(
-                            2,
+                            2
                           )}%)
                         </li>
                       {/each}
@@ -223,11 +218,9 @@ harvestBySeasonList.sort(
 {#if bashedFrom.length}
   <section>
     <h1>{t("Bashed From", { _context })}</h1>
-    <LimitedList items={bashedFrom}>
-      {#snippet children({ item })}
-        <ItemSymbol {item} />
-        <ThingLink type="furniture" id={item.id} />
-      {/snippet}
+    <LimitedList items={bashedFrom} let:item>
+      <ItemSymbol {item} />
+      <ThingLink type="furniture" id={item.id} />
     </LimitedList>
   </section>
 {/if}

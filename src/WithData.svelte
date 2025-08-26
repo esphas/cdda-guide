@@ -1,15 +1,10 @@
 <script lang="ts">
 import { setContext } from "svelte";
 
-interface Props {
-  Component: any;
-  data: any;
-  [key: string]: any;
-}
-
-let { Component, data, ...rest }: Props = $props();
+export let Component: any;
+export let data: any;
 
 setContext("data", data);
 </script>
 
-<Component {...rest} />
+<svelte:component this={Component} {...$$restProps} />

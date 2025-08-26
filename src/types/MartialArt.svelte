@@ -8,7 +8,6 @@ import Technique from "./Technique.svelte";
 import BonusContainer from "./BonusContainer.svelte";
 import MartialArtRequirements from "./MartialArtRequirements.svelte";
 import { t } from "@transifex/native";
-import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 
@@ -26,11 +25,7 @@ function learnDifficultyAsText(difficulty: number): string {
   }
 }
 
-interface Props {
-  item: MartialArt;
-}
-
-let { item }: Props = $props();
+export let item: MartialArt;
 const _context = "Martial Art";
 
 const books = data
@@ -52,11 +47,11 @@ const buffss: [string, MartialArtBuff[]][] = [
 ];
 
 const buffMap = new Map(
-  buffss.flatMap((x) => x[1]).map((buff) => [buff.id, buff]),
+  buffss.flatMap((x) => x[1]).map((buff) => [buff.id, buff])
 );
 </script>
 
-<h1>{t("Martial Art")}: {singularName(item)} <ModTag {item} clickable /></h1>
+<h1>{t("Martial Art")}: {singularName(item)}</h1>
 
 <section>
   <h1>{t("General", { _context })}</h1>
@@ -66,7 +61,7 @@ const buffMap = new Map(
         <dt>{t("Difficulty to Learn", { _context })}</dt>
         <dd>
           {item.learn_difficulty} ({i18n.__(
-            learnDifficultyAsText(item.learn_difficulty),
+            learnDifficultyAsText(item.learn_difficulty)
           )})
         </dd>
       {/if}
@@ -137,12 +132,11 @@ const buffMap = new Map(
     <LimitedList
       items={[...item.weapons].sort((a, b) =>
         singularName(data.byId("item", a)).localeCompare(
-          singularName(data.byId("item", b)),
-        ),
-      )}>
-      {#snippet children({ item })}
-        <ThingLink id={item} type="item" />
-      {/snippet}
+          singularName(data.byId("item", b))
+        )
+      )}
+      let:item>
+      <ThingLink id={item} type="item" />
     </LimitedList>
   </section>
 {/if}

@@ -7,11 +7,7 @@ import type { Recipe } from "../../types";
 import ThingLink from "../ThingLink.svelte";
 import ItemSymbol from "./ItemSymbol.svelte";
 
-interface Props {
-  item_id: string;
-}
-
-let { item_id }: Props = $props();
+export let item_id: string;
 
 let data = getContext<CddaData>("data");
 
@@ -31,19 +27,17 @@ for (const id of allCraftableThings) {
 }
 const uncraftableFrom = [...uncraftableFromSet].sort((a, b) =>
   singularName(data.byId("item", a)).localeCompare(
-    singularName(data.byId("item", b)),
-  ),
+    singularName(data.byId("item", b))
+  )
 );
 </script>
 
 {#if uncraftableFrom.length}
   <section>
     <h1>{t("Disassemble", { _context: "Obtaining" })}</h1>
-    <LimitedList items={uncraftableFrom}>
-      {#snippet children({ item: id })}
-        <ItemSymbol item={data.byId("item", id)} />
-        <ThingLink type="item" {id} />
-      {/snippet}
+    <LimitedList items={uncraftableFrom} let:item={id}>
+      <ItemSymbol item={data.byId("item", id)} />
+      <ThingLink type="item" {id} />
     </LimitedList>
   </section>
 {/if}

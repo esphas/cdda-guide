@@ -7,17 +7,11 @@ import ThingLink from "./ThingLink.svelte";
 
 const _context = "Martial Art";
 
-interface Props {
-  item: MartialArtRequirements;
-  buffMap?: Map<string, MartialArtBuff>;
-}
-
-let { item, buffMap = new Map() }: Props = $props();
+export let item: MartialArtRequirements;
+export let buffMap: Map<string, MartialArtBuff> = new Map();
 
 const requiredBuffs =
-  typeof item.req_buffs === "string"
-    ? [item.req_buffs]
-    : (item.req_buffs ?? []);
+  typeof item.req_buffs === "string" ? [item.req_buffs] : item.req_buffs ?? [];
 </script>
 
 <dt>{t("Required Skills")}</dt>
@@ -51,4 +45,4 @@ const requiredBuffs =
 <dt>{t("Unarmed Allowed", { _context })}</dt>
 <dd>{item.unarmed_allowed ? t("Yes") : t("No")}</dd>
 <dt>{t("Unarmed Weapon Allowed", { _context })}</dt>
-<dd>{(item.unarmed_weapons_allowed ?? true) ? t("Yes") : t("No")}</dd>
+<dd>{item.unarmed_weapons_allowed ?? true ? t("Yes") : t("No")}</dd>

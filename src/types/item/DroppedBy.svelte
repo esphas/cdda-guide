@@ -9,11 +9,7 @@ import ThingLink from "../ThingLink.svelte";
 import ItemSymbol from "./ItemSymbol.svelte";
 import ItemTable from "./ItemTable.svelte";
 
-interface Props {
-  item_id: string;
-}
-
-let { item_id }: Props = $props();
+export let item_id: string;
 
 let data = getContext<CddaData>("data");
 const mons = new Map(
@@ -23,7 +19,7 @@ const mons = new Map(
     const dd = deathDrops.get(item_id);
     if (dd) return [[mon.id, { prob: dd.prob, expected: dd.expected }]];
     return [];
-  }),
+  })
 );
 
 const itemsFromHarvest = (h: Harvest): string[] =>
@@ -32,7 +28,7 @@ const itemsFromHarvest = (h: Harvest): string[] =>
       ? data
           .flattenTopLevelItemGroup(data.byId("item_group", e.drop))
           .map((x) => x.id)
-      : [e.drop],
+      : [e.drop]
   ) ?? [];
 
 const harvests = data
@@ -54,11 +50,9 @@ const dissectableFrom = data
 {#if harvestableFrom.length}
   <section>
     <h1>{t("Butcher", { _context: "Obtaining" })}</h1>
-    <LimitedList items={harvestableFrom}>
-      {#snippet children({ item: m })}
-        <ItemSymbol item={m} />
-        <ThingLink id={m.id} type="monster" />
-      {/snippet}
+    <LimitedList items={harvestableFrom} let:item={m}>
+      <ItemSymbol item={m} />
+      <ThingLink id={m.id} type="monster" />
     </LimitedList>
   </section>
 {/if}
@@ -66,11 +60,9 @@ const dissectableFrom = data
 {#if dissectableFrom.length}
   <section>
     <h1>{t("Dissect", { _context: "Obtaining" })}</h1>
-    <LimitedList items={dissectableFrom}>
-      {#snippet children({ item: m })}
-        <ItemSymbol item={m} />
-        <ThingLink id={m.id} type="monster" />
-      {/snippet}
+    <LimitedList items={dissectableFrom} let:item={m}>
+      <ItemSymbol item={m} />
+      <ThingLink id={m.id} type="monster" />
     </LimitedList>
   </section>
 {/if}

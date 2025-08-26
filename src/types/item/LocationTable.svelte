@@ -8,19 +8,15 @@ import OvermapAppearance from "./OvermapAppearance.svelte";
 import { t } from "@transifex/native";
 import LimitedTableList from "../../LimitedTableList.svelte";
 
-interface Props {
-  id: string;
-  loots: Promise<Map<string, { loot: Loot; ids: string[] }>>;
-  heading: string;
-}
-
-let { id, loots, heading }: Props = $props();
+export let id: string;
+export let loots: Promise<Map<string, { loot: Loot; ids: string[] }>>;
+export let heading: string;
 
 const data = getContext<CddaData>("data");
 
 function filterLocations(
   lootByAppearance: Map<string, { loot: Loot; ids: string[] }>,
-  id: string,
+  id: string
 ): { overmap_special: OvermapSpecial; ids: string[]; chance: ItemChance }[] {
   const spawnLocations: {
     overmap_special: OvermapSpecial;
@@ -37,7 +33,7 @@ function filterLocations(
   spawnLocations.sort((a, b) =>
     (b.chance.prob * 100).toFixed(2) === (a.chance.prob * 100).toFixed(2)
       ? b.chance.expected - a.chance.expected
-      : b.chance.prob - a.chance.prob,
+      : b.chance.prob - a.chance.prob
   );
   return spawnLocations;
 }
@@ -55,34 +51,30 @@ function filterLocations(
   {#if spawnLocations.length}
     <section>
       <LimitedTableList items={spawnLocations}>
-        {#snippet header()}
-          <tr>
-            <th colspan="2"><h1>{heading}</h1></th>
-            <th style="text-align: right; padding-left: 1em;"
-              ><h1>{t("Avg. Count", { _context: "Obtaining" })}</h1></th>
-            <th style="text-align: right; padding-left: 1em;"
-              ><h1>{t("Chance", { _context: "Obtaining" })}</h1></th>
-          </tr>
-        {/snippet}
-        {#snippet item({ item: loc })}
-          <tr class="middle">
-            <td
-              style="text-align: center; width: 0; padding-left: 0.5em; padding-right: 0.5em;">
-              <OvermapAppearance overmapSpecial={loc.overmap_special} />
-            </td>
-            <td>
-              <a href="/overmap_special/{loc.ids[0]}{location.search}"
-                >{omsName(data, loc.overmap_special)}</a>
-              {#if loc.ids.length > 1}
-                {t("({n} variants)", { n: loc.ids.length })}
-              {/if}
-            </td>
-            <td style="text-align: right; padding-left: 1em;"
-              >{showNumber(loc.chance.expected)}</td>
-            <td style="text-align: right; padding-left: 1em;"
-              >{showProbability(loc.chance.prob)}</td>
-          </tr>
-        {/snippet}
+        <tr slot="header">
+          <th colspan="2"><h1>{heading}</h1></th>
+          <th style="text-align: right; padding-left: 1em;"
+            ><h1>{t("Avg. Count", { _context: "Obtaining" })}</h1></th>
+          <th style="text-align: right; padding-left: 1em;"
+            ><h1>{t("Chance", { _context: "Obtaining" })}</h1></th>
+        </tr>
+        <tr class="middle" slot="item" let:item={loc}>
+          <td
+            style="text-align: center; width: 0; padding-left: 0.5em; padding-right: 0.5em;">
+            <OvermapAppearance overmapSpecial={loc.overmap_special} />
+          </td>
+          <td>
+            <a href="/overmap_special/{loc.ids[0]}{location.search}"
+              >{omsName(data, loc.overmap_special)}</a>
+            {#if loc.ids.length > 1}
+              {t("({n} variants)", { n: loc.ids.length })}
+            {/if}
+          </td>
+          <td style="text-align: right; padding-left: 1em;"
+            >{showNumber(loc.chance.expected)}</td>
+          <td style="text-align: right; padding-left: 1em;"
+            >{showProbability(loc.chance.prob)}</td>
+        </tr>
       </LimitedTableList>
     </section>
   {/if}

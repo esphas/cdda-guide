@@ -13,13 +13,8 @@ import {
 import ItemSymbol from "./item/ItemSymbol.svelte";
 import ThingLink from "./ThingLink.svelte";
 import Recipe from "./Recipe.svelte";
-import ModTag from "./ModTag.svelte";
 
-interface Props {
-  item: Skill;
-}
-
-let { item }: Props = $props();
+export let item: Skill;
 
 const data = getContext<CddaData>("data");
 
@@ -27,7 +22,7 @@ const booksWithSkill = data
   .byType("item")
   .filter((t) => t.id && isItemSubtype("BOOK", t) && t.skill === item.id)
   .sort((a, b) =>
-    singularName(a).localeCompare(singularName(b)),
+    singularName(a).localeCompare(singularName(b))
   ) as SupportedTypesWithMapped["BOOK"][];
 
 const booksByLevel = new Map<number, SupportedTypesWithMapped["BOOK"][]>();
@@ -37,7 +32,7 @@ for (const book of booksWithSkill) {
   booksByLevel.get(book.max_level ?? 0)!.push(book);
 }
 const booksByLevelList = [...booksByLevel.entries()].sort(
-  (a, b) => a[0] - b[0],
+  (a, b) => a[0] - b[0]
 );
 booksByLevelList.forEach(([, books]) => {
   books.sort((a, b) => (a.required_level ?? 0) - (b.required_level ?? 0));
@@ -46,7 +41,7 @@ booksByLevelList.forEach(([, books]) => {
 const itemsUsingSkill = data
   .byType("item")
   .filter(
-    (i) => i.id && isItemSubtype("GUN", i) && i.skill === item.id,
+    (i) => i.id && isItemSubtype("GUN", i) && i.skill === item.id
   ) as SupportedTypesWithMapped["GUN"][];
 itemsUsingSkill.sort(byName);
 
@@ -56,11 +51,11 @@ const practiceRecipes = data
 practiceRecipes.sort(
   (a, b) =>
     (a.practice_data?.min_difficulty ?? 0) -
-    (b.practice_data?.min_difficulty ?? 0),
+    (b.practice_data?.min_difficulty ?? 0)
 );
 </script>
 
-<h1>{t("Skill")}: {singularName(item)} <ModTag {item} clickable /></h1>
+<h1>{t("Skill")}: {singularName(item)}</h1>
 <section>
   <p style="color: var(--cata-color-gray)">{singular(item.description)}</p>
 </section>
@@ -86,11 +81,9 @@ practiceRecipes.sort(
 {#if itemsUsingSkill.length}
   <section>
     <h1>{t("Used By", { _context: "Skill" })}</h1>
-    <LimitedList items={itemsUsingSkill}>
-      {#snippet children({ item })}
-        <ItemSymbol {item} />
-        <ThingLink type="item" id={item.id} />
-      {/snippet}
+    <LimitedList items={itemsUsingSkill} let:item>
+      <ItemSymbol {item} />
+      <ThingLink type="item" id={item.id} />
     </LimitedList>
   </section>
 {/if}

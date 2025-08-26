@@ -7,16 +7,11 @@ import type { Fault } from "../types";
 import { t } from "@transifex/native";
 import RequirementDataTools from "./item/RequirementDataTools.svelte";
 import JsonView from "../JsonView.svelte";
-import ModTag from "./ModTag.svelte";
 
 const data = getContext<CddaData>("data");
 const _context = "Fault";
 
-interface Props {
-  item: Fault;
-}
-
-let { item }: Props = $props();
+export let item: Fault;
 
 // 0.G
 const mendingMethods = (item.mending_methods ?? []).map((mm) => {
@@ -24,7 +19,7 @@ const mendingMethods = (item.mending_methods ?? []).map((mm) => {
   const requirement = data.normalizeRequirementUsing(requirements);
   const components = data.flattenRequirement(
     requirement.components,
-    (r) => r.components,
+    (r) => r.components
   );
   return { mending_method: mm, components, requirement };
 });
@@ -37,7 +32,7 @@ const faultFixes = data
     const requirement = data.normalizeRequirementUsing(requirements);
     const components = data.flattenRequirement(
       requirement.components,
-      (r) => r.components,
+      (r) => r.components
     );
     return { fault_fix: ff, components, requirement };
   });
@@ -68,7 +63,7 @@ const fault_flag_descriptions: Record<string, string> = {
 };
 </script>
 
-<h1>{t("Fault")}: {singularName(item)} <ModTag {item} clickable /></h1>
+<h1>{t("Fault")}: {singularName(item)}</h1>
 
 <section>
   <dl>
@@ -109,7 +104,7 @@ const fault_flag_descriptions: Record<string, string> = {
             <ul>
               {#each components as componentChoices}
                 <li>
-                  {#each componentChoices.map( (c) => ({ ...c, item: data.byId("item", c.id) }), ) as { id, count }, i}
+                  {#each componentChoices.map( (c) => ({ ...c, item: data.byId("item", c.id) }) ) as { id, count }, i}
                     {#if i !== 0}{i18n.__(" OR ")}{/if}
                     <ThingLink {id} {count} type="item" />
                   {/each}
@@ -149,7 +144,7 @@ const fault_flag_descriptions: Record<string, string> = {
             <ul>
               {#each components as componentChoices}
                 <li>
-                  {#each componentChoices.map( (c) => ({ ...c, item: data.byId("item", c.id) }), ) as { id, count }, i}
+                  {#each componentChoices.map( (c) => ({ ...c, item: data.byId("item", c.id) }) ) as { id, count }, i}
                     {#if i !== 0}{i18n.__(" OR ")}{/if}
                     <ThingLink {id} {count} type="item" />
                   {/each}

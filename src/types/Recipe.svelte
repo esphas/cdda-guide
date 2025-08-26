@@ -9,18 +9,14 @@ import RequirementData from "./item/RequirementData.svelte";
 import ThingLink from "./ThingLink.svelte";
 import InterpolatedTranslation from "../InterpolatedTranslation.svelte";
 
-interface Props {
-  recipe: Recipe;
-  showResult?: boolean;
-}
-
-let { recipe, showResult = false }: Props = $props();
+export let recipe: Recipe;
+export let showResult: boolean = false;
 
 const data = getContext<CddaData>("data");
 const _context = "Recipe";
 
 function normalizeSkillsRequired(
-  skills_required: [string, number] | [string, number][] | undefined,
+  skills_required: [string, number] | [string, number][] | undefined
 ): [string, number][] {
   if (skills_required === undefined) return [];
   if (skills_required.length === 0) return [];
@@ -34,7 +30,7 @@ let skillsRequired = normalizeSkillsRequired(recipe.skills_required);
 const writtenIn = Array.isArray(recipe.book_learn)
   ? [...recipe.book_learn]
   : [...Object.entries((recipe.book_learn ?? {}) as Record<string, any>)].map(
-      ([k, v]) => [k, v.skill_level],
+      ([k, v]) => [k, v.skill_level]
     );
 writtenIn.sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0));
 
@@ -90,18 +86,20 @@ function activityLevelName(level: number) {
         _comment: "Section heading",
       })}{:else}{t("Craft", { _context, _comment: "Section heading" })}{/if}
   </h1>
-  {#if recipe.never_learn}
-    <section class="warning">
-      ⚠️ {t(
-        "This recipe is not learnable. It may be used by NPCs or for debugging purposes.",
-        {
-          _context,
-          _comment:
-            "This is a basecamp recipe or other utility recipe that isn't directly usable by the player.",
-        },
-      )}
-    </section>
-  {/if}
+  <p>
+    {#if recipe.never_learn}
+      <section class="warning">
+        ⚠️ {t(
+          "This recipe is not learnable. It may be used by NPCs or for debugging purposes.",
+          {
+            _context,
+            _comment:
+              "This is a basecamp recipe or other utility recipe that isn't directly usable by the player.",
+          }
+        )}
+      </section>
+    {/if}
+  </p>
   <dl>
     {#if (showResult || recipe.variant) && recipe.result}
       <dt>{t("Result", { _context })}</dt>
@@ -139,12 +137,9 @@ function activityLevelName(level: number) {
               skill_limit: "{skill_limit}",
               _context,
               _comment: "practice recipe skill limit",
-            })}>
-            {#snippet contents(name: string)}
-              {#if name === "skill_limit"}
-                <span>{recipe.practice_data?.skill_limit ?? 0}</span>
-              {/if}
-            {/snippet}
+            })}
+            slot0="skill_limit">
+            <span slot="0">{recipe.practice_data.skill_limit ?? 0}</span>
           </InterpolatedTranslation>
         {/if}
       </dd>
@@ -168,7 +163,7 @@ function activityLevelName(level: number) {
               prof.learning_time_multiplier !== 1
                 ? `${prof.learning_time_multiplier}× ${t(
                     "learning speed",
-                    ctx,
+                    ctx
                   )}`
                 : null,
             ].filter((x) => x)}
@@ -191,8 +186,8 @@ function activityLevelName(level: number) {
     <dd>
       {t(
         activityLevelName(
-          activityLevels[recipe.activity_level ?? "MODERATE_EXERCISE"],
-        ),
+          activityLevels[recipe.activity_level ?? "MODERATE_EXERCISE"]
+        )
       )}
     </dd>
     <dt>{t("Batch Time Savings", { _context })}</dt>

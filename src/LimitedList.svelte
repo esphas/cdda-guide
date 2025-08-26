@@ -1,35 +1,33 @@
 <script lang="ts">
 import { t } from "@transifex/native";
-import type { Snippet } from "svelte";
 
-interface Props {
-  items: any[];
-  limit?: number;
-  grace?: number;
-  children?: Snippet<[any]>;
-}
+export let items: any[];
 
-let { items, limit = 10, grace = 4, children }: Props = $props();
+export let limit = 10;
+
+export let grace = 4;
 
 // In test mode, always render the expanded list to catch any render bugs that
 // only show up when the full list is shown.
 const isTesting =
   typeof globalThis !== undefined && (globalThis as any)?.__isTesting__;
 
-let realLimit = $state(
-  isTesting ? Infinity : items.length <= limit + grace ? limit + grace : limit,
-);
+let realLimit = isTesting
+  ? Infinity
+  : items.length <= limit + grace
+  ? limit + grace
+  : limit;
 </script>
 
 <ul>
   {#each items.slice(0, realLimit) as item}
-    <li>{@render children?.({ item })}</li>
+    <li><slot {item} /></li>
   {/each}
 </ul>
 {#if items.length > realLimit}
   <button
     class="disclosure"
-    onclick={(e) => {
+    on:click={(e) => {
       e.preventDefault();
       realLimit = Infinity;
     }}

@@ -8,12 +8,8 @@ import { CddaData, i18n, singularName } from "../../data";
 import type { Recipe, RequirementData } from "../../types";
 import ThingLink from "../ThingLink.svelte";
 
-interface Props {
-  requirement: RequirementData & { using?: Recipe["using"] };
-  direction?: "uncraft" | "craft";
-}
-
-let { requirement, direction = "craft" }: Props = $props();
+export let requirement: RequirementData & { using?: Recipe["using"] };
+export let direction: "uncraft" | "craft" = "craft";
 
 const _context = "Requirement";
 const data = getContext<CddaData>("data");
@@ -40,14 +36,11 @@ let { tools, qualities } =
                   quality.amount ?? 1,
                   quality.amount ?? 1,
                   "{tool_quality}",
-                  quality.level,
+                  quality.level
                 )
-                .replace(/\$./g, "")}>
-              {#snippet contents(name: string)}
-                {#if name === "tool_quality"}
-                  <ThingLink type="tool_quality" id={quality.id} />
-                {/if}
-              {/snippet}
+                .replace(/\$./g, "")}
+              slot0="tool_quality">
+              <ThingLink type="tool_quality" id={quality.id} slot="0" />
             </InterpolatedTranslation>{/each}
         </li>
       {/each}
@@ -59,7 +52,7 @@ let { tools, qualities } =
               {#if data.craftingPseudoItem(toolId)}
                 <a
                   href="/furniture/{data.craftingPseudoItem(
-                    toolId,
+                    toolId
                   )}{location.search}"
                   >{singularName(data.byId("item", toolId))}</a>
               {:else}
@@ -75,23 +68,22 @@ let { tools, qualities } =
                     "%1$s (%2$d charges)",
                     count,
                     "{item}",
-                    count,
+                    count
                   )
-                  .replace(/\$./g, "")}>
-                {#snippet contents(name: string)}
-                  {#if name === "item"}
-                    {#if data.craftingPseudoItem(toolId)}
-                      <a
-                        href="{import.meta.env
-                          .BASE_URL}furniture/{data.craftingPseudoItem(
-                          toolId,
-                        )}{location.search}"
-                        >{singularName(data.byId("item", toolId))}</a>
-                    {:else}
-                      <ThingLink type="item" id={toolId} />
-                    {/if}
+                  .replace(/\$./g, "")}
+                slot0="item">
+                <svelte:fragment slot="0">
+                  {#if data.craftingPseudoItem(toolId)}
+                    <a
+                      href="{import.meta.env
+                        .BASE_URL}furniture/{data.craftingPseudoItem(
+                        toolId
+                      )}{location.search}"
+                      >{singularName(data.byId("item", toolId))}</a>
+                  {:else}
+                    <ThingLink type="item" id={toolId} />
                   {/if}
-                {/snippet}
+                </svelte:fragment>
               </InterpolatedTranslation>
             {/if}
           {/each}

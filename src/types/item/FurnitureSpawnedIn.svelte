@@ -5,11 +5,7 @@ import { furnitureByOMSAppearance } from "./spawnLocations";
 import { t } from "@transifex/native";
 import LocationTable from "./LocationTable.svelte";
 
-interface Props {
-  item_id: string;
-}
-
-let { item_id }: Props = $props();
+export let item_id: string;
 
 const data = getContext<CddaData>("data");
 </script>

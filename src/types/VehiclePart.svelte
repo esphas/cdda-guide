@@ -19,15 +19,10 @@ import type { ItemGroupData, VehiclePart } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
 import RequirementData from "./item/RequirementData.svelte";
 import ThingLink from "./ThingLink.svelte";
-import ModTag from "./ModTag.svelte";
 
 const _context = "Vehicle Part";
 
-interface Props {
-  item: VehiclePart;
-}
-
-let { item }: Props = $props();
+export let item: VehiclePart;
 
 function bonusLabel(item: VehiclePart) {
   const light_flags = [
@@ -57,10 +52,10 @@ const breaksIntoGroup: ItemGroupData | null =
   typeof item.breaks_into === "string"
     ? data.convertTopLevelItemGroup(data.byId("item_group", item.breaks_into))
     : Array.isArray(item.breaks_into)
-      ? { subtype: "collection", entries: item.breaks_into }
-      : item.breaks_into
-        ? item.breaks_into
-        : null;
+    ? { subtype: "collection", entries: item.breaks_into }
+    : item.breaks_into
+    ? item.breaks_into
+    : null;
 const breaksIntoGroupFlattened =
   breaksIntoGroup && data.flattenItemGroup(breaksIntoGroup);
 
@@ -70,16 +65,16 @@ const vehiclesContainingPart = data.byType("vehicle").filter(
     v.parts.some((part) => {
       const parts = part.part
         ? [{ part: part.part, fuel: part.fuel }]
-        : (part.parts?.map((part) =>
-            typeof part === "string" ? { part } : part,
-          ) ?? []);
+        : part.parts?.map((part) =>
+            typeof part === "string" ? { part } : part
+          ) ?? [];
       return parts.some(
-        (p) => getVehiclePartIdAndVariant(data, p.part)[0] === item.id,
+        (p) => getVehiclePartIdAndVariant(data, p.part)[0] === item.id
       );
-    }),
+    })
 );
 vehiclesContainingPart.sort((a, b) =>
-  singularName(a).localeCompare(singularName(b)),
+  singularName(a).localeCompare(singularName(b))
 );
 </script>
 
@@ -88,9 +83,8 @@ vehiclesContainingPart.sort((a, b) =>
   {item.name
     ? singularName(item)
     : item.item
-      ? singularName(data.byId("item", item.item))
-      : item.id}
-  <ModTag {item} clickable />
+    ? singularName(data.byId("item", item.item))
+    : item.id}
 </h1>
 
 <section>
@@ -102,7 +96,7 @@ vehiclesContainingPart.sort((a, b) =>
     <dd>
       {item.flags?.includes("APPLIANCE")
         ? "structure"
-        : (item.location ?? "none")}
+        : item.location ?? "none"}
     </dd>
     <dt>{t("Weight")}</dt>
     <dd>{asKilograms(data.byId("item", item.item).weight ?? 0)}</dd>
@@ -232,7 +226,7 @@ vehiclesContainingPart.sort((a, b) =>
 
   <p style="color: var(--cata-color-gray)">
     {singular(
-      item.description ?? data.byId("item", item.item).description ?? "",
+      item.description ?? data.byId("item", item.item).description ?? ""
     )}
   </p>
 </section>
@@ -282,7 +276,7 @@ vehiclesContainingPart.sort((a, b) =>
           asMinutes(
             `${
               parseDuration(item.requirements?.install?.time ?? "1 hour") / 2
-            } s`,
+            } s`
           )}
       </dd>
       {#if item.requirements?.removal}
@@ -312,7 +306,7 @@ vehiclesContainingPart.sort((a, b) =>
     </dl>
     <p style="color: var(--cata-color-gray); font-style: italic">
       {t(
-        "Repair time and requirements are lower for parts that are less damaged.",
+        "Repair time and requirements are lower for parts that are less damaged."
       )}
     </p>
   </section>
@@ -327,10 +321,8 @@ vehiclesContainingPart.sort((a, b) =>
           "Heading for list of vehicles which contain this vehicle part",
       })}
     </h1>
-    <LimitedList items={vehiclesContainingPart}>
-      {#snippet children({ item })}
-        <ThingLink type="vehicle" id={item.id} />
-      {/snippet}
+    <LimitedList items={vehiclesContainingPart} let:item>
+      <ThingLink type="vehicle" id={item.id} />
     </LimitedList>
   </section>
 {/if}

@@ -3,11 +3,7 @@ import { normalizeDamageInstance } from "../../data";
 import type { SpecialAttack } from "../../types";
 import GunAttack from "./special_attacks/GunAttack.svelte";
 
-interface Props {
-  special_attack: SpecialAttack;
-}
-
-let { special_attack }: Props = $props();
+export let special_attack: SpecialAttack;
 </script>
 
 {#if Array.isArray(special_attack)}

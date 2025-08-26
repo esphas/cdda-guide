@@ -2,7 +2,5 @@
 dist
 dev-dist
 
-.env
-
 .DS_Store
 _test/

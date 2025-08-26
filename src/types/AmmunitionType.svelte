@@ -8,13 +8,8 @@ import type { AmmunitionType, Item, ItemSubtypeToSlot } from "../types";
 import { isItemSubtype } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
 import ThingLink from "./ThingLink.svelte";
-import ModTag from "./ModTag.svelte";
 
-interface Props {
-  item: AmmunitionType;
-}
-
-let { item }: Props = $props();
+export let item: AmmunitionType;
 
 const _context = "Ammunition Type";
 
@@ -24,7 +19,7 @@ const compatible = data
   .byType("item")
   .filter(
     (x): x is Item & ItemSubtypeToSlot["AMMO"] =>
-      !!x.id && isItemSubtype("AMMO", x) && x.ammo_type === item.id,
+      !!x.id && isItemSubtype("AMMO", x) && x.ammo_type === item.id
   );
 compatible.sort(byName);
 
@@ -36,14 +31,14 @@ const usesAmmoType = (w: Item, t: AmmunitionType): boolean => {
     (pocket) =>
       pocket.pocket_type === "MAGAZINE" &&
       pocket.ammo_restriction &&
-      Object.prototype.hasOwnProperty.call(pocket.ammo_restriction, t.id),
+      Object.prototype.hasOwnProperty.call(pocket.ammo_restriction, t.id)
   );
 };
 
 const usedBy = data.byType("item").filter((w) => w.id && usesAmmoType(w, item));
 function composeSort<T>(
   fa: (a: T, b: T) => number,
-  fb: (a: T, b: T) => number,
+  fb: (a: T, b: T) => number
 ) {
   return (a: T, b: T) => {
     const r = fa(a, b);
@@ -57,10 +52,7 @@ function byType(a: Item, b: Item) {
 usedBy.sort(composeSort(byType, byName));
 </script>
 
-<h1>
-  {t("Ammunition Type")}: {singularName(item)}
-  <ModTag {item} clickable />
-</h1>
+<h1>{t("Ammunition Type")}: {singularName(item)}</h1>
 <section>
   <h1>{t("Compatible Variants", { _context })}</h1>
   <ul>
@@ -77,11 +69,9 @@ usedBy.sort(composeSort(byType, byName));
 <section>
   <h1>{t("Used By", { _context })}</h1>
   {#if usedBy.length > 0}
-    <LimitedList items={usedBy}>
-      {#snippet children({ item })}
-        <ItemSymbol {item} />
-        <ThingLink type="item" id={item.id} />
-      {/snippet}
+    <LimitedList items={usedBy} let:item>
+      <ItemSymbol {item} />
+      <ThingLink type="item" id={item.id} />
     </LimitedList>
   {:else}
     <p>

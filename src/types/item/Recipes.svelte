@@ -1,4 +1,4 @@
-<script module lang="ts">
+<script context="module" lang="ts">
 import type { Recipe as RecipeType } from "../../types";
 // Lazily compute the recipe index.
 let recipeIndex: Record<string, RecipeType[]>;
@@ -55,11 +55,7 @@ import Recipe from "../Recipe.svelte";
 import ThingLink from "../ThingLink.svelte";
 import ItemSymbol from "./ItemSymbol.svelte";
 
-interface Props {
-  item_id: string;
-}
-
-let { item_id }: Props = $props();
+export let item_id: string;
 
 let data = getContext<CddaData>("data");
 
@@ -67,7 +63,7 @@ const recipes = getRecipeIndex(data)[item_id] ?? [];
 recipes.sort(
   (a, b) =>
     ((a.never_learn ?? false) as unknown as number) -
-    ((b.never_learn ?? false) as unknown as number),
+    ((b.never_learn ?? false) as unknown as number)
 );
 
 const byproducts = getByproductsIndex(data)[item_id] ?? [];
@@ -82,11 +78,9 @@ const byproducts = getByproductsIndex(data)[item_id] ?? [];
 {#if byproducts.length}
   <section>
     <h1>{t("Byproduct when crafting", { _context: "Obtaining" })}</h1>
-    <LimitedList items={byproducts}>
-      {#snippet children({ item })}
-        <ItemSymbol item={data.byId("item", item.result)} />
-        <ThingLink type="item" id={item.result} />
-      {/snippet}
+    <LimitedList items={byproducts} let:item>
+      <ItemSymbol item={data.byId("item", item.result)} />
+      <ThingLink type="item" id={item.result} />
     </LimitedList>
   </section>
 {/if}
