@@ -14,7 +14,7 @@ let { id, data }: Props = $props();
 setContext("data", data);
 
 const mods = data.activeMods
-  .filter((mod) => (id ? mod === id : true))
+  .filter((mod) => (id ? mod === id : mod !== "dda"))
   .map((mod) => data.getModInfo(mod))
   .filter((mod) => mod !== undefined)
   .sort((a, b) => a.name.localeCompare(b.name));

@@ -516,6 +516,7 @@ export class CddaData {
 
   get availableMods(): { id: string; label: string }[] {
     return Object.entries(this._mods)
+      .filter(([id]) => id !== "dda")
       .map(([id, info]) => ({ id, label: translate(info.name, false, 1) }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }

@@ -56,10 +56,6 @@ $effect(() => {
   });
 });
 
-// this is not derived from enabledMods because it's only changed after data has finished loading
-// svelte-ignore state_referenced_locally
-let mods = $state(enabledMods.map((m) => m.id).join(","));
-
 // svelte-ignore state_referenced_locally
 data.setVersion(
   version,
@@ -155,7 +151,6 @@ function load(noScroll: boolean = false) {
     item = null;
     search = "";
   }
-  mods = enabledMods.map((m) => m.id).join(",");
 }
 
 $effect(() => {
@@ -395,7 +390,7 @@ function langHref(lang: string, href: string) {
 <main>
   {#if item}
     {#if $data}
-      {#key [item, mods]}
+      {#key [item, enabledMods]}
         {#if item.type === "mod"}
           <ModCategory id={item.id} data={$data} />
         {:else if item.id}
@@ -418,7 +413,7 @@ function langHref(lang: string, href: string) {
     {/if}
   {:else if search}
     {#if $data}
-      {#key [search, mods]}
+      {#key [search, enabledMods]}
         <SearchResults data={$data} {search} />
       {/key}
     {:else}
@@ -577,7 +572,7 @@ Anyway?`,
         <a href="/conduct{location.search}">{t("Conducts")}</a>
       </li>
       <li><a href="/proficiency{location.search}">{t("Proficiencies")}</a></li>
-      {#if $data && $data.activeMods.length > 0}
+      {#if $data && $data.activeMods.length > 1}
         <li><a href="/mod{location.search}">{t("Mods")}</a></li>
       {/if}
     </ul>
