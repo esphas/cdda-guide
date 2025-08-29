@@ -5,11 +5,9 @@ name: Run Tests
 
 on:
   push:
-    branches: [main, dev]
+    branches: [dev]
   pull_request:
-    branches: [main, dev]
-  schedule:
-    - cron: "55 */12 * * *"
+    branches: [dev]
 
 jobs:
   build:
