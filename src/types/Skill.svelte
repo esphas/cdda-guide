@@ -66,6 +66,7 @@ for (const recipe of data.byType("recipe")) {
   skillRecipes[level].push(recipe as RecipeType & { result: string });
 }
 for (const level of skillRecipes) {
+  if (!level) continue;
   level.sort((a, b) => {
     const aResult = data.byId("item", a.result!);
     const bResult = data.byId("item", b.result!);
@@ -128,11 +129,13 @@ for (const level of skillRecipes) {
 {#if skillRecipes.length}
   <h1>{t("Recipes")}</h1>
   {#each skillRecipes as recipes, level}
-    <section>
-      <h1>{t("Level {level}", { level, _context })}</h1>
-      <LimitedList items={recipes} let:item>
-        <ThingLink id={item.result} type="item" />
-      </LimitedList>
-    </section>
+    {#if recipes && recipes.length}
+      <section>
+        <h1>{t("Level {level}", { level, _context })}</h1>
+        <LimitedList items={recipes} let:item>
+          <ThingLink id={item.result} type="item" />
+        </LimitedList>
+      </section>
+    {/if}
   {/each}
 {/if}
