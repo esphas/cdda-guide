@@ -482,6 +482,16 @@ function attenuatePalette(
   return attenuatedPalette;
 }
 
+function attenuatePaletteLazy(
+  palette: Map<string, () => Loot>,
+  t: number
+): Map<string, () => Loot> {
+  const attenuatedPalette: Map<string, () => Loot> = new Map();
+  for (const [k, v] of palette.entries())
+    attenuatedPalette.set(k, () => attenuateLoot(v(), t));
+  return attenuatedPalette;
+}
+
 function addLoot(loots: Loot[]): Loot {
   const ret: Loot = new Map();
   for (const loot of loots) {
@@ -548,14 +558,10 @@ function toLoot(distribution: Map<string, number>): Loot {
   );
 }
 
-let onStack = 0;
 function lootForChunks(
   data: CddaData,
   chunks: (raw.MapgenValue | [raw.MapgenValue, raw.dbl_or_var])[]
 ): Loot {
-  onStack += 1;
-  // TODO: See https://github.com/nornagon/cdda-guide/issues/73
-  if (onStack > 4) return new Map();
   const normalizedChunks = (chunks ?? []).map((c) =>
     Array.isArray(c) ? c : ([c, 100] as [raw.MapgenValue, raw.dbl_or_var])
   );
@@ -574,14 +580,13 @@ function lootForChunks(
       return { loot, weight };
     })
   );
-  onStack -= 1;
   return loot;
 }
 
 const lootForMapgenCache = new WeakMap<raw.Mapgen, Loot>();
 export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
   if (lootForMapgenCache.has(mapgen)) return lootForMapgenCache.get(mapgen)!;
-  const palette = parsePalette(data, mapgen.object);
+  const palette = parsePaletteLazy(data, mapgen.object);
   const place_items: Loot[] = (mapgen.object.place_items ?? []).map(
     ({ item, chance = 100, repeat }) =>
       parseItemGroup(data, item, repeat, chance / 100)
@@ -632,7 +637,7 @@ export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
         countByPalette.set(char, (countByPalette.get(char) ?? 0) + 1);
   const items: Loot[] = [];
   for (const [sym, count] of countByPalette.entries()) {
-    const loot = palette.get(sym)!;
+    const loot = palette.get(sym)!();
     const multipliedLoot: Loot = new Map();
     for (const [id, chance] of loot.entries()) {
       multipliedLoot.set(id, repeatItemChance(chance, [count, count]));
@@ -758,6 +763,30 @@ function mergePalettes(palettes: Map<string, Loot>[]): Map<string, Loot> {
     .map((x: (readonly [string, Loot])[]) => new Map(x))[0];
 }
 
+function mergePalettesLazy(
+  palettes: Map<string, () => Loot>[]
+): Map<string, () => Loot> {
+  const cache = new Map<string, Loot>();
+  return [palettes]
+    .map((x) => x.flatMap((p) => [...p]))
+    .map((x) => [...multimap(x)])
+    .map((x) =>
+      x.map(
+        ([k, v]) =>
+          [
+            k,
+            () => {
+              if (cache.has(k)) return cache.get(k)!;
+              const loot = collection(v.map((f) => f()));
+              cache.set(k, loot);
+              return loot;
+            },
+          ] as const
+      )
+    )
+    .map((x: (readonly [string, () => Loot])[]) => new Map(x))[0];
+}
+
 function parsePlaceMapping<T>(
   mapping: undefined | raw.PlaceMapping<T>,
   extract: (t: T) => Iterable<Loot>
@@ -768,6 +797,21 @@ function parsePlaceMapping<T>(
       collection(
         (Array.isArray(val) ? val : [val]).flatMap((x: T) => [...extract(x)])
       ),
+    ])
+  );
+}
+
+function parsePlaceMappingLazy<T>(
+  mapping: undefined | raw.PlaceMapping<T>,
+  extract: (t: T) => Iterable<Loot>
+): Map<string, () => Loot> {
+  return new Map(
+    Object.entries(mapping ?? {}).map(([sym, val]) => [
+      sym,
+      () =>
+        collection(
+          (Array.isArray(val) ? val : [val]).flatMap((x: T) => [...extract(x)])
+        ),
     ])
   );
 }
@@ -794,13 +838,13 @@ function parsePlaceMappingAlternative<T>(
   );
 }
 
-const paletteCache = new WeakMap<raw.PaletteData, Map<string, Loot>>();
-export function parsePalette(
+const paletteCache = new WeakMap<raw.PaletteData, Map<string, () => Loot>>();
+export function parsePaletteLazy(
   data: CddaData,
   palette: raw.PaletteData
-): Map<string, Loot> {
+): Map<string, () => Loot> {
   if (paletteCache.has(palette)) return paletteCache.get(palette)!;
-  const sealed_item = parsePlaceMapping(
+  const sealed_item = parsePlaceMappingLazy(
     palette.sealed_item,
     function* ({ item, items, chance = 100 }) {
       if (items)
@@ -825,7 +869,7 @@ export function parsePalette(
         ]);
     }
   );
-  const item = parsePlaceMapping(
+  const item = parsePlaceMappingLazy(
     palette.item,
     function* ({ item, chance = 100, repeat }) {
       if (typeof item === "string")
@@ -840,18 +884,18 @@ export function parsePalette(
         ]);
     }
   );
-  const items = parsePlaceMapping(
+  const items = parsePlaceMappingLazy(
     palette.items,
     function* ({ item, chance = 100, repeat }) {
       yield parseItemGroup(data, item, repeat, chance / 100);
     }
   );
-  const nested = parsePlaceMapping(palette.nested, function* ({ chunks }) {
+  const nested = parsePlaceMappingLazy(palette.nested, function* ({ chunks }) {
     yield lootForChunks(data, chunks ?? []);
   });
   const palettes = (palette.palettes ?? []).flatMap((val) => {
     if (typeof val === "string") {
-      return [parsePalette(data, data.byId("palette", val))];
+      return [parsePaletteLazy(data, data.byId("palette", val))];
     } else if ("distribution" in val) {
       const opts = val.distribution;
       function prob<T>(it: T | [T, number]) {
@@ -862,8 +906,8 @@ export function parsePalette(
       }
       const totalProb = opts.reduce((m, it) => m + prob(it), 0);
       return opts.map((it) =>
-        attenuatePalette(
-          parsePalette(data, data.byId("palette", id(it))),
+        attenuatePaletteLazy(
+          parsePaletteLazy(data, data.byId("palette", id(it))),
           prob(it) / totalProb
         )
       );
@@ -879,7 +923,10 @@ export function parsePalette(
         }
         const id = getMapgenValueDistribution(param.default);
         return [...id.entries()].map(([id, chance]) =>
-          attenuatePalette(parsePalette(data, data.byId("palette", id)), chance)
+          attenuatePaletteLazy(
+            parsePaletteLazy(data, data.byId("palette", id)),
+            chance
+          )
         );
       } else {
         console.warn(`missing parameter ${val.param}`);
@@ -887,9 +934,23 @@ export function parsePalette(
       }
     } else return [];
   });
-  const ret = mergePalettes([item, items, sealed_item, nested, ...palettes]);
+  const ret = mergePalettesLazy([
+    item,
+    items,
+    sealed_item,
+    nested,
+    ...palettes,
+  ]);
   paletteCache.set(palette, ret);
   return ret;
+}
+
+export function parsePalette(
+  data: CddaData,
+  palette: raw.PaletteData
+): Map<string, Loot> {
+  const lazy = parsePaletteLazy(data, palette);
+  return new Map(Array.from(lazy.entries()).map(([k, v]) => [k, v()]));
 }
 
 const furniturePaletteCache = new WeakMap<raw.PaletteData, Map<string, Loot>>();
