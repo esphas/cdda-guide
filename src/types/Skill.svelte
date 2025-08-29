@@ -9,6 +9,7 @@ import {
   isItemSubtype,
   type Skill,
   type SupportedTypesWithMapped,
+  type Recipe as RecipeType,
 } from "../types";
 import ItemSymbol from "./item/ItemSymbol.svelte";
 import ThingLink from "./ThingLink.svelte";
@@ -18,6 +19,7 @@ import ModTag from "./ModTag.svelte";
 export let item: Skill;
 
 const data = getContext<CddaData>("data");
+const _context = "Skill";
 
 const booksWithSkill = data
   .byType("item")
@@ -57,6 +59,34 @@ practiceRecipes.sort(
     (a.practice_data?.min_difficulty ?? 0) -
     (b.practice_data?.min_difficulty ?? 0)
 );
+
+const skillRecipes: (RecipeType & { result: string })[][] = [];
+for (const recipe of data.byType("recipe")) {
+  if (recipe.skill_used !== item.id) continue;
+  if (recipe.abstract || recipe.obsolete || recipe.never_learn) continue;
+  if (!recipe.result || !data.byIdMaybe("item", recipe.result)) continue;
+  const level = recipe.difficulty ?? 0;
+  skillRecipes[level] ??= [];
+  skillRecipes[level].push(recipe as RecipeType & { result: string });
+}
+for (const level of skillRecipes) {
+  level.sort((a, b) => {
+    const aResult = data.byId("item", a.result!);
+    const bResult = data.byId("item", b.result!);
+    if (aResult !== bResult) {
+      return singularName(aResult).localeCompare(singularName(bResult));
+    }
+    const aName = (a.name ? singularName(a) : "%s").replace(
+      "%s",
+      singularName(aResult)
+    );
+    const bName = (b.name ? singularName(b) : "%s").replace(
+      "%s",
+      singularName(bResult)
+    );
+    return aName.localeCompare(bName);
+  });
+}
 </script>
 
 <h1>{t("Skill")}: {singularName(item)} <ModTag {item} clickable /></h1>
@@ -96,5 +126,17 @@ practiceRecipes.sort(
   <h1>{t("Practice Recipes", { _context: "Skill" })}</h1>
   {#each practiceRecipes as recipe}
     <Recipe {recipe} showResult={false} />
+  {/each}
+{/if}
+
+{#if skillRecipes.length}
+  <h1>{t("Recipes")}</h1>
+  {#each skillRecipes as recipes, level}
+    <section>
+      <h1>{t("Level {level}", { level, _context })}</h1>
+      <LimitedList items={recipes} let:item>
+        <ThingLink id={item.result} type="item" />
+      </LimitedList>
+    </section>
   {/each}
 {/if}
