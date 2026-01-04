@@ -518,10 +518,14 @@ Anyway?`,
     {/if}
 
     <p>
-      This is a fork of the <a href="https://cdda-guide.nornagon.net/">original project</a>.
-      The main goal of this fork is to add mod content support.
-      Until the changes are merged upstream, this page will remain deployed as an interim version.
-      If you encounter any issues, feel free to visit <a href="https://github.com/esphas/cdda-guide/">the repository of this fork</a>.
+      This is a fork of the <a href="https://cdda-guide.nornagon.net/"
+        >original project</a
+      >. The main goal of this fork is to add mod content support. Until the
+      changes are merged upstream, this page will remain deployed as an interim
+      version. If you encounter any issues, feel free to visit
+      <a href="https://github.com/esphas/cdda-guide/"
+        >the repository of this fork</a
+      >.
     </p>
 
     <h2>{t("Catalogs")}</h2>
