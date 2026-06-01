@@ -13,6 +13,7 @@ import Furniture from "./types/Furniture.svelte";
 import Skill from "./types/Skill.svelte";
 import Proficiency from "./types/Proficiency.svelte";
 import Flag from "./types/Flag.svelte";
+import MonsterFlag from "./types/MonsterFlag.svelte";
 import Fault from "./types/Fault.svelte";
 import Vitamin from "./types/Vitamin.svelte";
 import VehiclePart from "./types/VehiclePart.svelte";
@@ -36,6 +37,9 @@ import OvermapSpecial from "./types/OvermapSpecial.svelte";
 import ItemAction from "./types/ItemAction.svelte";
 import Technique from "./types/Technique.svelte";
 
+import Spoiler from "./Spoiler.svelte";
+import { isSpoilerItem } from "./spoilers";
+
 export let item: { id: string; type: string };
 
 export let data: CddaData;
@@ -55,7 +59,7 @@ function onError(e: Error) {
 }
 
 function defaultItem(id: string, type: string) {
-  if (type === "json_flag") {
+  if (type === "json_flag" || type === "monster_flag") {
     return { id, type, __filename: "" };
   } else {
     return undefined;
@@ -93,6 +97,7 @@ const displays: Record<string, typeof SvelteComponent> = {
   skill: Skill,
   proficiency: Proficiency,
   json_flag: Flag,
+  monster_flag: MonsterFlag,
   fault: Fault,
   vitamin: Vitamin,
   vehicle_part: VehiclePart,
@@ -145,7 +150,9 @@ const display = (obj && displays[obj.type]) ?? Unknown;
       {#if /obsolet/.test(obj.__filename)}
         <ObsoletionWarning item={obj} />
       {/if}
-      <svelte:component this={display} item={obj} />
+      <Spoiler spoily={isSpoilerItem(item.id)}>
+        <svelte:component this={display} item={obj} />
+      </Spoiler>
     </ErrorBoundary>
   {/if}
 

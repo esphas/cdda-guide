@@ -1,5 +1,5 @@
 import { writable } from "svelte/store";
-import makeI18n, { Gettext } from "gettext.js";
+import makeI18n, { type Gettext } from "gettext.js";
 
 import {
   type Translation,
@@ -234,7 +234,7 @@ export function asHumanReadableDuration(duration: string | number) {
     ] as [number, string][]
   )
     .filter(([n]) => n)
-    .map((x) => x.join(""))
+    .map((x) => x.join(" "))
     .join(" ");
 }
 
@@ -698,6 +698,34 @@ export class CddaData {
               (rdu.constant_damage_multiplier ?? 0);
           }
         }
+      } else if (k === "melee_damage" && ret.type === "MONSTER" && ret[k]) {
+        const meleeDamage = normalizeDamageInstance(
+          JSON.parse(JSON.stringify(ret[k]))
+        );
+        const relativeDamage = normalizeDamageInstance(ret.relative[k]);
+        for (const rdu of relativeDamage) {
+          const modified = meleeDamage.find(
+            (du) => du.damage_type === rdu.damage_type
+          );
+          if (modified) {
+            modified.amount = (modified.amount ?? 0) + (rdu.amount ?? 0);
+            modified.armor_penetration =
+              (modified.armor_penetration ?? 0) + (rdu.armor_penetration ?? 0);
+            modified.armor_multiplier =
+              (modified.armor_multiplier ?? 0) + (rdu.armor_multiplier ?? 0);
+            modified.damage_multiplier =
+              (modified.damage_multiplier ?? 0) + (rdu.damage_multiplier ?? 0);
+            modified.constant_armor_multiplier =
+              (modified.constant_armor_multiplier ?? 0) +
+              (rdu.constant_armor_multiplier ?? 0);
+            modified.constant_damage_multiplier =
+              (modified.constant_damage_multiplier ?? 0) +
+              (rdu.constant_damage_multiplier ?? 0);
+          } else {
+            meleeDamage.push(JSON.parse(JSON.stringify(rdu)));
+          }
+        }
+        ret[k] = meleeDamage;
       } else if (
         (k === "melee_damage" || (k === "armor" && ret.type === "MONSTER")) &&
         ret[k]
@@ -716,8 +744,11 @@ export class CddaData {
       } else if (k === "qualities") {
         ret[k] = JSON.parse(JSON.stringify(ret[k]));
         for (const [q, l] of ret.relative[k]) {
-          const existing = ret[k].find((x: any) => x[0] === q);
-          existing[1] += l;
+          const existing = ret[k].find((x: any) =>
+            Array.isArray(x) ? x[0] === q : x.id === q
+          );
+          if (Array.isArray(existing)) existing[1] += l;
+          else existing.level = (existing.level ?? 1) + l;
         }
       }
       // TODO: vitamins, mass, volume, time
@@ -790,6 +821,32 @@ export class CddaData {
               (pdu.constant_damage_multiplier ?? 1);
           }
         }
+      } else if (k === "melee_damage" && ret.type === "MONSTER" && ret[k]) {
+        const meleeDamage = normalizeDamageInstance(
+          JSON.parse(JSON.stringify(ret[k]))
+        );
+        const proportionalDamage = normalizeDamageInstance(ret.proportional[k]);
+        for (const pdu of proportionalDamage) {
+          const modified = meleeDamage.find(
+            (du) => du.damage_type === pdu.damage_type
+          );
+          if (modified) {
+            modified.amount = (modified.amount ?? 0) * (pdu.amount ?? 1);
+            modified.armor_penetration =
+              (modified.armor_penetration ?? 0) * (pdu.armor_penetration ?? 1);
+            modified.armor_multiplier =
+              (modified.armor_multiplier ?? 0) * (pdu.armor_multiplier ?? 1);
+            modified.damage_multiplier =
+              (modified.damage_multiplier ?? 0) * (pdu.damage_multiplier ?? 1);
+            modified.constant_armor_multiplier =
+              (modified.constant_armor_multiplier ?? 0) *
+              (pdu.constant_armor_multiplier ?? 1);
+            modified.constant_damage_multiplier =
+              (modified.constant_damage_multiplier ?? 0) *
+              (pdu.constant_damage_multiplier ?? 1);
+          }
+        }
+        ret[k] = meleeDamage;
       } else if (
         (k === "melee_damage" || (k === "armor" && ret.type === "MONSTER")) &&
         ret[k]
