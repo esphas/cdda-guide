@@ -43,10 +43,10 @@ const modThings = mods
                   .activeModObjects(mod.id, type)
                   .filter((o) => "id" in o && o.id)
                   .sort(byName),
-              ] as const
+              ] as const,
           )
           .filter(([_, things]) => things.length > 0),
-      ] as const
+      ] as const,
   )
   .filter(([_, typeThings]) => typeThings.length > 0);
 </script>
