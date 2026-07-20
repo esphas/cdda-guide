@@ -7,7 +7,7 @@ import { multimap } from "./utils";
 type chance = number;
 
 function normalizeMinMax(
-  v: undefined | number | [number] | [number, number]
+  v: undefined | number | [number] | [number, number],
 ): [number, number] {
   if (v == null) return [1, 1];
   if (typeof v === "number") return [v, v];
@@ -17,7 +17,7 @@ function normalizeMinMax(
 
 export function repeatChance(
   repeat: undefined | number | [number] | [number, number],
-  chance: chance
+  chance: chance,
 ): chance {
   const [n0, n1] = normalizeMinMax(repeat);
   let sum = 0;
@@ -57,7 +57,7 @@ function andItemChanceInPlace(a: ItemChance, b: ItemChance): ItemChance {
 // |a| is repeated between |n0| and |n1| times.
 function repeatItemChance(
   a: ItemChance,
-  [n0, n1]: [number, number]
+  [n0, n1]: [number, number],
 ): ItemChance {
   return {
     prob: repeatChance([n0, n1], a.prob),
@@ -107,7 +107,7 @@ function offsetMapgen(mapgen: raw.Mapgen, x: number, y: number): raw.Mapgen {
         min(p.x) >= mx &&
         min(p.y) >= my &&
         min(p.x) < mx + 24 &&
-        min(p.y) < my + 24
+        min(p.y) < my + 24,
     );
   if (object.place_item)
     object.place_item = object.place_item.filter(
@@ -115,7 +115,7 @@ function offsetMapgen(mapgen: raw.Mapgen, x: number, y: number): raw.Mapgen {
         min(p.x) >= mx &&
         min(p.y) >= my &&
         min(p.x) < mx + 24 &&
-        min(p.y) < my + 24
+        min(p.y) < my + 24,
     );
   if (object.add)
     object.add = object.add.filter(
@@ -123,7 +123,7 @@ function offsetMapgen(mapgen: raw.Mapgen, x: number, y: number): raw.Mapgen {
         min(p.x) >= mx &&
         min(p.y) >= my &&
         min(p.x) < mx + 24 &&
-        min(p.y) < my + 24
+        min(p.y) < my + 24,
     );
   if (object.place_loot)
     object.place_loot = object.place_loot.filter(
@@ -131,7 +131,7 @@ function offsetMapgen(mapgen: raw.Mapgen, x: number, y: number): raw.Mapgen {
         min(p.x) >= mx &&
         min(p.y) >= my &&
         min(p.x) < mx + 24 &&
-        min(p.y) < my + 24
+        min(p.y) < my + 24,
     );
   if (object.place_nested)
     object.place_nested = object.place_nested.filter(
@@ -139,7 +139,7 @@ function offsetMapgen(mapgen: raw.Mapgen, x: number, y: number): raw.Mapgen {
         min(p.x) >= mx &&
         min(p.y) >= my &&
         min(p.x) < mx + 24 &&
-        min(p.y) < my + 24
+        min(p.y) < my + 24,
     );
   return { ...mapgen, object };
 }
@@ -177,14 +177,14 @@ const canInputPending =
   "postTask" in (window as any).scheduler;
 
 async function yieldable<T>(
-  f: (wait: () => Promise<void>) => Promise<T>
+  f: (wait: () => Promise<void>) => Promise<T>,
 ): Promise<T> {
   if (canInputPending) {
     await new Promise((resolve) => setTimeout(resolve, 0));
     return f(() => {
       if ((navigator as any).scheduling.isInputPending()) {
         return new Promise((resolve) =>
-          (window as any).scheduler.postTask(resolve)
+          (window as any).scheduler.postTask(resolve),
         );
       }
       return Promise.resolve();
@@ -234,7 +234,7 @@ function getMapgensByOmt(data: CddaData): Map<string, raw.Mapgen[]> {
 }
 
 function normalizeMapgenVar(
-  dbl_or_var: raw.dbl_or_var | undefined
+  dbl_or_var: raw.dbl_or_var | undefined,
 ): number | undefined {
   if (dbl_or_var) {
     if (typeof dbl_or_var === "number") return dbl_or_var;
@@ -246,7 +246,7 @@ function normalizeMapgenVar(
 export function lootForOmt(
   data: CddaData,
   omt_id: string,
-  lootFn: (mapgen: raw.Mapgen) => Loot
+  lootFn: (mapgen: raw.Mapgen) => Loot,
 ) {
   const mapgensByOmt = getMapgensByOmt(data);
   const mapgens = mapgensByOmt.get(omt_id) ?? [];
@@ -254,7 +254,7 @@ export function lootForOmt(
     mapgens.map((mg) => ({
       weight: normalizeMapgenVar(mg.weight) ?? 1000,
       loot: lootFn(mg),
-    }))
+    })),
   );
   return loot;
 }
@@ -262,7 +262,7 @@ export function lootForOmt(
 export async function lootForOmSpecial(
   data: CddaData,
   om_special: raw.OvermapSpecial,
-  lootFn: (mapgen: raw.Mapgen) => Loot
+  lootFn: (mapgen: raw.Mapgen) => Loot,
 ): Promise<Loot> {
   if (om_special.subtype === "mutable") return new Map();
   const loots: Loot[] = [];
@@ -279,7 +279,7 @@ export async function lootForOmSpecial(
 
 export async function lootByOmSpecial(
   data: CddaData,
-  lootFn: (mapgen: raw.Mapgen) => Loot
+  lootFn: (mapgen: raw.Mapgen) => Loot,
 ) {
   const overmapSpecials = data.byType("overmap_special");
 
@@ -287,14 +287,14 @@ export async function lootByOmSpecial(
   for (const om_special of overmapSpecials)
     lootByOmSpecial.set(
       om_special.id,
-      await lootForOmSpecial(data, om_special, lootFn)
+      await lootForOmSpecial(data, om_special, lootFn),
     );
   return lootByOmSpecial;
 }
 
 export function overmapAppearance(
   data: CddaData,
-  oms: raw.OvermapSpecial
+  oms: raw.OvermapSpecial,
 ): string | undefined {
   if (oms.subtype === "mutable") return;
   const overmaps = [...(oms.overmaps ?? [])];
@@ -347,13 +347,13 @@ function lazily<T extends object, U>(f: (x: T) => U): (x: T) => U {
   };
 }
 export const lootByOMSAppearance = lazily((data: CddaData) =>
-  computeLootByOMSAppearance(data, (mg) => getLootForMapgen(data, mg))
+  computeLootByOMSAppearance(data, (mg) => getLootForMapgen(data, mg)),
 );
 export const furnitureByOMSAppearance = lazily((data: CddaData) =>
-  computeLootByOMSAppearance(data, (mg) => getFurnitureForMapgen(data, mg))
+  computeLootByOMSAppearance(data, (mg) => getFurnitureForMapgen(data, mg)),
 );
 export const terrainByOMSAppearance = lazily((data: CddaData) =>
-  computeLootByOMSAppearance(data, (mg) => getTerrainForMapgen(data, mg))
+  computeLootByOMSAppearance(data, (mg) => getTerrainForMapgen(data, mg)),
 );
 
 export const getOMSByAppearance = lazily(
@@ -367,12 +367,12 @@ export const getOMSByAppearance = lazily(
     for (const v of omsByAppearance.values())
       v.sort((a, b) => a.localeCompare(b));
     return omsByAppearance;
-  }
+  },
 );
 
 async function computeLootByOMSAppearance(
   data: CddaData,
-  lootFn: (mapgen: raw.Mapgen) => Loot
+  lootFn: (mapgen: raw.Mapgen) => Loot,
 ) {
   const lootByOMS = await lootByOmSpecial(data, lootFn);
   const lootByOMSAppearance = new Map<string, { loot: Loot; ids: string[] }>();
@@ -381,7 +381,7 @@ async function computeLootByOMSAppearance(
       if (isSpoilerLocation(oms_id)) continue;
       const appearance = overmapAppearance(
         data,
-        data.byId("overmap_special", oms_id)
+        data.byId("overmap_special", oms_id),
       );
       if (!appearance) continue;
       if (!lootByOMSAppearance.has(appearance))
@@ -427,8 +427,8 @@ export function mergeLoot(loots: { loot: Loot; weight: number }[]): Loot {
         item_id,
         flatAddItemChance(
           mergedLoot.get(item_id) ?? zeroItemChance,
-          scaleItemChance(chance, proportion)
-        )
+          scaleItemChance(chance, proportion),
+        ),
       );
     }
   }
@@ -444,7 +444,7 @@ function attenuateLoot(loot: Loot, t: number): Loot {
 
 function attenuatePalette(
   palette: Map<string, Loot>,
-  t: number
+  t: number,
 ): Map<string, Loot> {
   const attenuatedPalette: Map<string, Loot> = new Map();
   for (const [k, v] of palette.entries())
@@ -454,7 +454,7 @@ function attenuatePalette(
 
 function attenuatePaletteLazy(
   palette: Map<string, () => Loot>,
-  t: number
+  t: number,
 ): Map<string, () => Loot> {
   const attenuatedPalette: Map<string, () => Loot> = new Map();
   for (const [k, v] of palette.entries())
@@ -500,14 +500,14 @@ function getMapgenValueDistribution(val: raw.MapgenValue): Map<string, number> {
     const opts = val.distribution;
     const totalProb = opts.reduce(
       (m, it) => m + (typeof it === "string" ? 1 : it[1]),
-      0
+      0,
     );
     return new Map(
       opts.map((it) =>
         typeof it === "string"
           ? [it, 1 / totalProb]
-          : ([it[0], it[1] / totalProb] as [string, number])
-      )
+          : ([it[0], it[1] / totalProb] as [string, number]),
+      ),
     );
   }
   if ("param" in val) {
@@ -524,31 +524,33 @@ function toLoot(distribution: Map<string, number>): Loot {
     [...distribution.entries()].map(([id, prob]) => [
       id,
       { prob, expected: prob },
-    ])
+    ]),
   );
 }
 
 function lootForChunks(
   data: CddaData,
-  chunks: (raw.MapgenValue | [raw.MapgenValue, raw.dbl_or_var])[]
+  chunks: (raw.MapgenValue | [raw.MapgenValue, raw.dbl_or_var])[],
 ): Loot {
   const normalizedChunks = (chunks ?? []).map((c) =>
-    Array.isArray(c) ? c : ([c, 100] as [raw.MapgenValue, raw.dbl_or_var])
+    Array.isArray(c) ? c : ([c, 100] as [raw.MapgenValue, raw.dbl_or_var]),
   );
   const loot = mergeLoot(
     normalizedChunks.map(([chunkIdValue, weightVar]) => {
       const chunkId = getMapgenValue(chunkIdValue);
-      const chunkMapgens = chunkId ? data.nestedMapgensById(chunkId) ?? [] : [];
+      const chunkMapgens = chunkId
+        ? (data.nestedMapgensById(chunkId) ?? [])
+        : [];
       const loot = mergeLoot(
         chunkMapgens.map((mg) => {
           const loot = getLootForMapgen(data, mg);
           const weight = normalizeMapgenVar(mg.weight) ?? 1000;
           return { loot, weight };
-        })
+        }),
       );
       const weight = normalizeMapgenVar(weightVar) ?? 100;
       return { loot, weight };
-    })
+    }),
   );
   return loot;
 }
@@ -559,7 +561,7 @@ export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
   const palette = parsePaletteLazy(data, mapgen.object);
   const place_items: Loot[] = (mapgen.object.place_items ?? []).map(
     ({ item, chance = 100, repeat }) =>
-      parseItemGroup(data, item, repeat, chance / 100)
+      parseItemGroup(data, item, repeat, chance / 100),
   );
   const place_item = [
     ...(mapgen.object.place_item ?? []),
@@ -572,7 +574,7 @@ export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
             itemNormalized,
             repeatItemChance(
               { prob: chance / 100, expected: chance / 100 },
-              normalizeMinMax(repeat)
+              normalizeMinMax(repeat),
             ),
           ],
         ])
@@ -586,8 +588,8 @@ export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
             [item, { prob: chance / 100, expected: chance / 100 }],
           ])
         : group
-        ? parseItemGroup(data, group, repeat, chance / 100)
-        : new Map<string, ItemChance>()
+          ? parseItemGroup(data, group, repeat, chance / 100)
+          : new Map<string, ItemChance>(),
   );
   const place_nested = (mapgen.object.place_nested ?? []).map((nested) => {
     const loot = lootForChunks(data, nested.chunks ?? []);
@@ -595,7 +597,7 @@ export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
     for (const [id, chance] of loot.entries()) {
       multipliedLoot.set(
         id,
-        repeatItemChance(chance, normalizeMinMax(nested.repeat))
+        repeatItemChance(chance, normalizeMinMax(nested.repeat)),
       );
     }
     return multipliedLoot;
@@ -629,13 +631,13 @@ export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
 const furnitureForMapgenCache = new WeakMap<raw.Mapgen, Loot>();
 export function getFurnitureForMapgen(
   data: CddaData,
-  mapgen: raw.Mapgen
+  mapgen: raw.Mapgen,
 ): Loot {
   if (furnitureForMapgenCache.has(mapgen))
     return furnitureForMapgenCache.get(mapgen)!;
   const palette = parseFurniturePalette(data, mapgen.object);
   const place_furniture: Loot[] = (mapgen.object.place_furniture ?? []).map(
-    ({ furn }) => new Map([[furn, { prob: 1, expected: 1 }]])
+    ({ furn }) => new Map([[furn, { prob: 1, expected: 1 }]]),
   );
   const additional_items = collection([...place_furniture]);
   const countByPalette = new Map<string, number>();
@@ -668,7 +670,7 @@ export function getTerrainForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
     ? getMapgenValueDistribution(mapgen.object.fill_ter)
     : new Map<string, number>();
   const place_terrain = (mapgen.object.place_terrain ?? []).map(({ ter }) =>
-    toLoot(getMapgenValueDistribution(ter))
+    toLoot(getMapgenValueDistribution(ter)),
   );
   const additional_items = collection([...place_terrain]);
   const countByPalette = new Map<string, number>();
@@ -706,22 +708,22 @@ export function parseItemGroup(
   data: CddaData,
   group: raw.InlineItemGroup,
   repeat: undefined | number | [number] | [number, number],
-  chance: chance
+  chance: chance,
 ): Loot {
   const g =
     typeof group === "string"
       ? data.convertTopLevelItemGroup(
-          data.byIdMaybe("item_group", group) ?? { id: group, items: [] }
+          data.byIdMaybe("item_group", group) ?? { id: group, items: [] },
         )
       : Array.isArray(group)
-      ? { subtype: "collection" as "collection", entries: group }
-      : group;
+        ? { subtype: "collection" as "collection", entries: group }
+        : group;
   const flat = data.flattenItemGroup(g);
   return new Map(
     flat.map((x) => [
       x.id,
       repeatItemChance(scaleItemChance(x, chance), normalizeMinMax(repeat)),
-    ])
+    ]),
   );
 }
 
@@ -734,7 +736,7 @@ function mergePalettes(palettes: Map<string, Loot>[]): Map<string, Loot> {
 }
 
 function mergePalettesLazy(
-  palettes: Map<string, () => Loot>[]
+  palettes: Map<string, () => Loot>[],
 ): Map<string, () => Loot> {
   const cache = new Map<string, Loot>();
   return [palettes]
@@ -751,67 +753,68 @@ function mergePalettesLazy(
               cache.set(k, loot);
               return loot;
             },
-          ] as const
-      )
+          ] as const,
+      ),
     )
     .map((x: (readonly [string, () => Loot])[]) => new Map(x))[0];
 }
 
 function parsePlaceMapping<T>(
   mapping: undefined | raw.PlaceMapping<T>,
-  extract: (t: T) => Iterable<Loot>
+  extract: (t: T) => Iterable<Loot>,
 ): Map<string, Loot> {
   return new Map(
     Object.entries(mapping ?? {}).map(([sym, val]) => [
       sym,
       collection(
-        (Array.isArray(val) ? val : [val]).flatMap((x: T) => [...extract(x)])
+        (Array.isArray(val) ? val : [val]).flatMap((x: T) => [...extract(x)]),
       ),
-    ])
+    ]),
   );
 }
 
 function parsePlaceMappingLazy<T>(
   mapping: undefined | raw.PlaceMapping<T>,
-  extract: (t: T) => Iterable<Loot>
+  extract: (t: T) => Iterable<Loot>,
 ): Map<string, () => Loot> {
   return new Map(
     Object.entries(mapping ?? {}).map(([sym, val]) => [
       sym,
       () =>
         collection(
-          (Array.isArray(val) ? val : [val]).flatMap((x: T) => [...extract(x)])
+          (Array.isArray(val) ? val : [val]).flatMap((x: T) => [...extract(x)]),
         ),
-    ])
+    ]),
   );
 }
 
 function parsePlaceMappingAlternative<T>(
   mapping: undefined | raw.PlaceMappingAlternative<T>,
-  extract: (t: T) => Iterable<Loot>
+  extract: (t: T) => Iterable<Loot>,
 ): Map<string, Loot> {
   return new Map(
     Object.entries(mapping ?? {}).map(([sym, val]) => {
       const vals = (Array.isArray(val) ? val : [val]).map(
-        (x: T | [T, number]) => (Array.isArray(x) ? x : ([x, 1] as [T, number]))
+        (x: T | [T, number]) =>
+          Array.isArray(x) ? x : ([x, 1] as [T, number]),
       );
       const total = vals.reduce((m, x) => m + x[1], 0);
       return [
         sym,
         collection(
           vals.flatMap(([x, weight]: [T, number]) =>
-            [...extract(x)].map((v) => attenuateLoot(v, weight / total))
-          )
+            [...extract(x)].map((v) => attenuateLoot(v, weight / total)),
+          ),
         ),
       ];
-    })
+    }),
   );
 }
 
 const paletteCache = new WeakMap<raw.PaletteData, Map<string, () => Loot>>();
 export function parsePaletteLazy(
   data: CddaData,
-  palette: raw.PaletteData
+  palette: raw.PaletteData,
 ): Map<string, () => Loot> {
   if (paletteCache.has(palette)) return paletteCache.get(palette)!;
   const sealed_item = parsePlaceMappingLazy(
@@ -822,7 +825,7 @@ export function parsePaletteLazy(
           data,
           items.item,
           items.repeat,
-          ((chance / 100) * (items.chance ?? 100)) / 100
+          ((chance / 100) * (items.chance ?? 100)) / 100,
         );
       if (item && typeof item.item === "string")
         yield new Map([
@@ -833,11 +836,11 @@ export function parsePaletteLazy(
                 prob: (chance / 100) * ((item.chance ?? 100) / 100),
                 expected: (chance / 100) * ((item.chance ?? 100) / 100),
               },
-              normalizeMinMax(item.repeat)
+              normalizeMinMax(item.repeat),
             ),
           ],
         ]);
-    }
+    },
   );
   const item = parsePlaceMappingLazy(
     palette.item,
@@ -848,17 +851,17 @@ export function parsePaletteLazy(
             item,
             repeatItemChance(
               { prob: chance / 100, expected: chance / 100 },
-              normalizeMinMax(repeat)
+              normalizeMinMax(repeat),
             ),
           ],
         ]);
-    }
+    },
   );
   const items = parsePlaceMappingLazy(
     palette.items,
     function* ({ item, chance = 100, repeat }) {
       yield parseItemGroup(data, item, repeat, chance / 100);
-    }
+    },
   );
   const nested = parsePlaceMappingLazy(palette.nested, function* ({ chunks }) {
     yield lootForChunks(data, chunks ?? []);
@@ -878,8 +881,8 @@ export function parsePaletteLazy(
       return opts.map((it) =>
         attenuatePaletteLazy(
           parsePaletteLazy(data, data.byId("palette", id(it))),
-          prob(it) / totalProb
-        )
+          prob(it) / totalProb,
+        ),
       );
     } else if ("param" in val) {
       const parameters = palette.parameters;
@@ -887,7 +890,7 @@ export function parsePaletteLazy(
         const param = parameters[val.param];
         if (param.type !== "palette_id") {
           console.warn(
-            `unexpected parameter type (was ${param.type}, expected palette_id)`
+            `unexpected parameter type (was ${param.type}, expected palette_id)`,
           );
           return [];
         }
@@ -895,8 +898,8 @@ export function parsePaletteLazy(
         return [...id.entries()].map(([id, chance]) =>
           attenuatePaletteLazy(
             parsePaletteLazy(data, data.byId("palette", id)),
-            chance
-          )
+            chance,
+          ),
         );
       } else {
         console.warn(`missing parameter ${val.param}`);
@@ -917,7 +920,7 @@ export function parsePaletteLazy(
 
 export function parsePalette(
   data: CddaData,
-  palette: raw.PaletteData
+  palette: raw.PaletteData,
 ): Map<string, Loot> {
   const lazy = parsePaletteLazy(data, palette);
   return new Map(Array.from(lazy.entries()).map(([k, v]) => [k, v()]));
@@ -926,7 +929,7 @@ export function parsePalette(
 const furniturePaletteCache = new WeakMap<raw.PaletteData, Map<string, Loot>>();
 export function parseFurniturePalette(
   data: CddaData,
-  palette: raw.PaletteData
+  palette: raw.PaletteData,
 ): Map<string, Loot> {
   if (furniturePaletteCache.has(palette))
     return furniturePaletteCache.get(palette)!;
@@ -936,7 +939,7 @@ export function parseFurniturePalette(
       const value = getMapgenValueDistribution(furn);
       for (const [f, prob] of value.entries())
         if (value) yield new Map([[f, { prob, expected: prob }]]);
-    }
+    },
   );
   const palettes = (palette.palettes ?? []).flatMap((val) => {
     if (typeof val === "string") {
@@ -953,8 +956,8 @@ export function parseFurniturePalette(
       return opts.map((it) =>
         attenuatePalette(
           parseFurniturePalette(data, data.byId("palette", id(it))),
-          prob(it) / totalProb
-        )
+          prob(it) / totalProb,
+        ),
       );
     } else return [];
   });
@@ -966,7 +969,7 @@ export function parseFurniturePalette(
 const terrainPaletteCache = new WeakMap<raw.PaletteData, Map<string, Loot>>();
 export function parseTerrainPalette(
   data: CddaData,
-  palette: raw.PaletteData
+  palette: raw.PaletteData,
 ): Map<string, Loot> {
   if (terrainPaletteCache.has(palette))
     return terrainPaletteCache.get(palette)!;
@@ -976,7 +979,7 @@ export function parseTerrainPalette(
       const value = getMapgenValueDistribution(ter);
       for (const [t, prob] of value.entries())
         if (value) yield new Map([[t, { prob, expected: prob }]]);
-    }
+    },
   );
   const palettes = (palette.palettes ?? []).flatMap((val) => {
     if (typeof val === "string") {
@@ -993,8 +996,8 @@ export function parseTerrainPalette(
       return opts.map((it) =>
         attenuatePalette(
           parseTerrainPalette(data, data.byId("palette", id(it))),
-          prob(it) / totalProb
-        )
+          prob(it) / totalProb,
+        ),
       );
     } else return [];
   });

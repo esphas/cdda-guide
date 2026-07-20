@@ -202,7 +202,7 @@ const containingBionics = data
       <dd>
         <MutationList
           mutations={item.canceled_mutations.map((id) =>
-            data.byId("mutation", id)
+            data.byId("mutation", id),
           )} />
       </dd>
     {/if}

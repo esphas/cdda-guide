@@ -25,10 +25,10 @@ const booksWithSkill = data
   .byType("item")
   .filter(
     (t) =>
-      t.id && isItemSubtype("BOOK", t) && (t.read_skill ?? t.skill) === item.id
+      t.id && isItemSubtype("BOOK", t) && (t.read_skill ?? t.skill) === item.id,
   )
   .sort((a, b) =>
-    singularName(a).localeCompare(singularName(b))
+    singularName(a).localeCompare(singularName(b)),
   ) as SupportedTypesWithMapped["BOOK"][];
 
 const booksByLevel = new Map<number, SupportedTypesWithMapped["BOOK"][]>();
@@ -38,7 +38,7 @@ for (const book of booksWithSkill) {
   booksByLevel.get(book.max_level ?? 0)!.push(book);
 }
 const booksByLevelList = [...booksByLevel.entries()].sort(
-  (a, b) => a[0] - b[0]
+  (a, b) => a[0] - b[0],
 );
 booksByLevelList.forEach(([, books]) => {
   books.sort((a, b) => (a.required_level ?? 0) - (b.required_level ?? 0));
@@ -47,7 +47,7 @@ booksByLevelList.forEach(([, books]) => {
 const itemsUsingSkill = data
   .byType("item")
   .filter(
-    (i) => i.id && isItemSubtype("GUN", i) && i.skill === item.id
+    (i) => i.id && isItemSubtype("GUN", i) && i.skill === item.id,
   ) as SupportedTypesWithMapped["GUN"][];
 itemsUsingSkill.sort(byName);
 
@@ -57,7 +57,7 @@ const practiceRecipes = data
 practiceRecipes.sort(
   (a, b) =>
     (a.practice_data?.min_difficulty ?? 0) -
-    (b.practice_data?.min_difficulty ?? 0)
+    (b.practice_data?.min_difficulty ?? 0),
 );
 
 const skillRecipes: (RecipeType & { result: string })[][] = [];
@@ -79,11 +79,11 @@ for (const level of skillRecipes) {
     }
     const aName = (a.name ? singularName(a) : "%s").replace(
       "%s",
-      singularName(aResult)
+      singularName(aResult),
     );
     const bName = (b.name ? singularName(b) : "%s").replace(
       "%s",
-      singularName(bResult)
+      singularName(bResult),
     );
     return aName.localeCompare(bName);
   });

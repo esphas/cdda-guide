@@ -59,7 +59,7 @@ for (const { seasons, id } of item.harvest_by_season ?? []) {
 const seasonOrder = ["winter", "spring", "summer", "autumn"];
 const harvestBySeasonList = [...harvestBySeason.entries()];
 harvestBySeasonList.sort(
-  (a, b) => seasonOrder.indexOf(a[0]) - seasonOrder.indexOf(b[0])
+  (a, b) => seasonOrder.indexOf(a[0]) - seasonOrder.indexOf(b[0]),
 );
 </script>
 
@@ -176,7 +176,7 @@ harvestBySeasonList.sort(
                         <li>
                           <ItemSymbol item={data.byId("item", id)} />
                           <ThingLink type="item" {id} /> ({(prob * 100).toFixed(
-                            2
+                            2,
                           )}%)
                         </li>
                       {/each}

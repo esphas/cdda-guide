@@ -20,7 +20,7 @@ const mendingMethods = (item.mending_methods ?? []).map((mm) => {
   const requirement = data.normalizeRequirementUsing(requirements);
   const components = data.flattenRequirement(
     requirement.components,
-    (r) => r.components
+    (r) => r.components,
   );
   return { mending_method: mm, components, requirement };
 });
@@ -33,7 +33,7 @@ const faultFixes = data
     const requirement = data.normalizeRequirementUsing(requirements);
     const components = data.flattenRequirement(
       requirement.components,
-      (r) => r.components
+      (r) => r.components,
     );
     return { fault_fix: ff, components, requirement };
   });
@@ -105,7 +105,7 @@ const fault_flag_descriptions: Record<string, string> = {
             <ul>
               {#each components as componentChoices}
                 <li>
-                  {#each componentChoices.map( (c) => ({ ...c, item: data.byId("item", c.id) }) ) as { id, count }, i}
+                  {#each componentChoices.map( (c) => ({ ...c, item: data.byId("item", c.id) }), ) as { id, count }, i}
                     {#if i !== 0}{i18n.__(" OR ")}{/if}
                     <ThingLink {id} {count} type="item" />
                   {/each}
@@ -145,7 +145,7 @@ const fault_flag_descriptions: Record<string, string> = {
             <ul>
               {#each components as componentChoices}
                 <li>
-                  {#each componentChoices.map( (c) => ({ ...c, item: data.byId("item", c.id) }) ) as { id, count }, i}
+                  {#each componentChoices.map( (c) => ({ ...c, item: data.byId("item", c.id) }), ) as { id, count }, i}
                     {#if i !== 0}{i18n.__(" OR ")}{/if}
                     <ThingLink {id} {count} type="item" />
                   {/each}
