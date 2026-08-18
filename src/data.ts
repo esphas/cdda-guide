@@ -99,6 +99,11 @@ function getMsgIdPlural(t: Translation): string {
         : t.str + "s";
 }
 
+const gettextPlaceholderArgs = Array.from(
+  { length: 20 },
+  (_, i) => `%${i + 1}`,
+);
+
 export function translate(
   t: Translation,
   needsPlural: boolean,
@@ -108,7 +113,7 @@ export function translate(
   const sg = getMsgId(t);
   const pl = needsPlural ? getMsgIdPlural(t) : "";
   return (
-    i18n.dcnpgettext(domain, undefined, sg, pl, n) ||
+    i18n.dcnpgettext(domain, undefined, sg, pl, n, ...gettextPlaceholderArgs) ||
     (n === 1 ? sg : (pl ?? sg))
   );
 }
