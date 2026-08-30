@@ -247,25 +247,15 @@ function maybeNavigate(event: MouseEvent) {
   const target = event.target as HTMLElement | null;
   const anchor = target?.closest("a") as HTMLAnchorElement | null;
   if (anchor && anchor.href) {
-    const { origin, pathname, search } = new URL(anchor.href);
+    const { origin, pathname } = new URL(anchor.href);
     if (
       origin === location.origin &&
       pathname.startsWith(import.meta.env.BASE_URL)
     ) {
       event.preventDefault();
-      const newSearchParams = new URLSearchParams(search);
       const searchParams = new URLSearchParams(location.search);
-      const mod = newSearchParams.get("mod");
-      if (
-        mod &&
-        /^\/([^\/]+)$/.test(pathname.slice(import.meta.env.BASE_URL.length - 1))
-      ) {
-        // Navigating to a catalog, allow the "&mod=" query param to persist.
-        searchParams.set("mod", mod);
-      } else {
-        // Navigating to an item or something else, drop the "&mod=" query param.
-        searchParams.delete("mod");
-      }
+      // `mod` used to filter catalogs, but is no longer supported.
+      searchParams.delete("mod");
       const newSearch = searchParams.toString();
       history.pushState(
         null,

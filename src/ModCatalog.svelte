@@ -1,7 +1,9 @@
 <script lang="ts">
 import { setContext } from "svelte";
 import { t } from "@transifex/native";
-import { CddaData, mapType } from "./data";
+import { CddaData, getAllObjectSources, mapType } from "./data";
+import type { SupportedTypeMapped, SupportedTypesWithMapped } from "./types";
+import CatalogSection from "./CatalogSection.svelte";
 
 export let data: CddaData;
 export let enabledMods: string[];
@@ -20,14 +22,35 @@ const reportedTypes = {
   monster: t("Monsters"),
   furniture: t("Furniture"),
   terrain: t("Terrain"),
+  vehicle: t("Vehicles"),
   vehicle_part: t("Vehicle Parts"),
   tool_quality: t("Tool Qualities"),
   mutation: t("Mutations"),
   martial_art: t("Martial Arts"),
   json_flag: t("Flags"),
   achievement: t("Achievements"),
-  proficiencies: t("Proficiencies"),
-};
+  conduct: t("Conducts"),
+  proficiency: t("Proficiencies"),
+} satisfies Partial<Record<keyof SupportedTypesWithMapped, string>>;
+
+const reportedTypeEntries = Object.entries(reportedTypes) as [
+  keyof typeof reportedTypes,
+  string,
+][];
+
+function catalogItems(
+  mod: string,
+  type: keyof SupportedTypesWithMapped,
+): (SupportedTypeMapped & { id: string })[] {
+  return data
+    .byType(type)
+    .filter(
+      (item): item is SupportedTypeMapped & { id: string } =>
+        "id" in item &&
+        typeof item.id === "string" &&
+        getAllObjectSources(item).some((source) => source.__mod === mod),
+    );
+}
 
 const hiddenMods = new Set([
   // These mods don't affect the data in the Guide at all, so hide them.
@@ -71,7 +94,7 @@ setContext("data", data);
     <p>{t("No mods found.")}</p>
   {/if}
 {:else}
-  {#each displayedMods as mod}
+  {#each displayedMods as mod (mod.id)}
     {@const modData = data.getRawModData(mod.id)}
     {@const countByType = modData.reduce((acc, item) => {
       const mappedType = mapType(item.type);
@@ -80,16 +103,6 @@ setContext("data", data);
       acc[mappedTypeOrOther] = (acc[mappedTypeOrOther] || 0) + 1;
       return acc;
     }, {})}
-    {@const otherTypes = [
-      ...modData
-        .reduce((acc, item) => {
-          const mappedType = mapType(item.type);
-          if (mappedType in reportedTypes) return acc;
-          acc.add(mappedType);
-          return acc;
-        }, new Set())
-        .values(),
-    ].sort()}
     {@const enabledCheckboxId = `mod-enabled-${mod.id}`}
     <h1 title={mod.id}>{mod.label}</h1>
     <section>
@@ -108,20 +121,11 @@ setContext("data", data);
           </label>
         </dd>
         {#if data.modsFetched}
-          {#each Object.entries(reportedTypes) as [type, label]}
+          {#each reportedTypeEntries as [type, label]}
             {#if countByType[type]}
               {@const count = countByType[type]}
-              {@const catalogLink = `/${type}?mod=${encodeURIComponent(mod.id)}`}
-              <dt>
-                {#if enabledMods.includes(mod.id)}
-                  <a href={catalogLink}>{label}</a>
-                {:else}
-                  {label}
-                {/if}
-              </dt>
-              <dd title={type === "other" ? otherTypes.join(", ") : undefined}>
-                {count}
-              </dd>
+              <dt>{label}</dt>
+              <dd>{count}</dd>
             {/if}
           {/each}
         {/if}
@@ -133,6 +137,14 @@ setContext("data", data);
         {mod.description}
       </p>
     </section>
+    {#if enabledMods.includes(mod.id)}
+      {#each reportedTypeEntries as [type, label]}
+        {@const items = catalogItems(mod.id, type)}
+        {#if items.length}
+          <CatalogSection {type} title={label} {items} />
+        {/if}
+      {/each}
+    {/if}
   {:else}
     <p>{t("Mod not found.")}</p>
   {/each}
