@@ -87,9 +87,7 @@ function isProficiency(t: SupportedTypeMapped): t is Proficiency {
 }
 </script>
 
-<h1>
-  {type}
-</h1>
+<h1>{type}</h1>
 {#each groupsList as [groupName, group]}
   {#if type === "mutation" && groupName && data.byIdMaybe("mutation_category", groupName)}
     <MutationCategory

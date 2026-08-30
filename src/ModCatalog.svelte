@@ -173,9 +173,8 @@ setContext("data", data);
     )}
     {@const countByType = modData.reduce((acc, item) => {
       const mappedType = mapType(item.type);
-      const mappedTypeOrOther =
-        mappedType in reportedTypes ? mappedType : "other";
-      acc[mappedTypeOrOther] = (acc[mappedTypeOrOther] || 0) + 1;
+      if (mappedType in reportedTypes)
+        acc[mappedType] = (acc[mappedType] || 0) + 1;
       return acc;
     }, {})}
     {@const enabledCheckboxId = `mod-enabled-${mod.id}`}

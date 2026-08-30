@@ -41,7 +41,7 @@ let builds:
     }[]
   | null = null;
 
-fetch(`${process.env.CDDA_DATA_SOURCE}/builds.json`)
+fetch("https://raw.githubusercontent.com/nornagon/cdda-data/main/builds.json")
   .then((d) => d.json())
   .then((b) => {
     builds = b;
@@ -253,15 +253,7 @@ function maybeNavigate(event: MouseEvent) {
       pathname.startsWith(import.meta.env.BASE_URL)
     ) {
       event.preventDefault();
-      const searchParams = new URLSearchParams(location.search);
-      // `mod` used to filter catalogs, but is no longer supported.
-      searchParams.delete("mod");
-      const newSearch = searchParams.toString();
-      history.pushState(
-        null,
-        "",
-        pathname + (newSearch ? "?" + newSearch : ""),
-      );
+      history.pushState(null, "", pathname + location.search);
       load();
     }
   }
