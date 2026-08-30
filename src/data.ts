@@ -474,20 +474,14 @@ export class CddaData {
   }
 
   isMonsterInList(mon: Monster, list: any) {
-    if (Object.hasOwnProperty.call(list, "monsters")) {
-      return list.monsters.includes(mon.id);
-    } else if (Object.hasOwnProperty.call(list, "species")) {
-      if (typeof mon.species === "string") {
-        return list.species.includes(mon.species);
-      } else if (Array.isArray(mon.species)) {
-        return mon.species.some((s) => list.species.includes(s));
-      }
-    } else if (Object.hasOwnProperty.call(list, "categories")) {
-      if (Array.isArray(mon.categories)) {
-        return mon.categories.some((c) => list.categories.includes(c));
-      }
-    }
-    return false;
+    const species =
+      typeof mon.species === "string" ? [mon.species] : (mon.species ?? []);
+    return (
+      list.monsters?.includes(mon.id) ||
+      species.some((s) => list.species?.includes(s)) ||
+      mon.categories?.some((c) => list.categories?.includes(c)) ||
+      false
+    );
   }
 
   isMonsterBlacklisted(mon: Monster): boolean {
@@ -516,6 +510,13 @@ export class CddaData {
   getRawModData(id: string): any[] {
     return this._rawMods[id]?.data ?? [];
   }
+
+  setRawModData(rawMods: Record<string, { info: any; data: any[] }>) {
+    this._rawMods = rawMods;
+    this._modsFetched = true;
+    this.initData();
+  }
+
   getModInfo(mod: string): ModInfo | undefined {
     return this._rawMods[mod]?.info ?? this._mods[mod];
   }
@@ -2295,13 +2296,36 @@ async function retry<T>(promiseGenerator: () => Promise<T>) {
 const loadProgressStore = writable<[number, number] | null>(null);
 export const loadProgress = { subscribe: loadProgressStore.subscribe };
 let _hasSetVersion = false;
+let _currentData: CddaData | null = null;
+let _currentVersion: string | null = null;
+let _fetchingMods: Promise<void> | null = null;
 const { subscribe, set } = writable<CddaData | null>(null);
 export const data = {
   subscribe,
+  async fetchMods() {
+    if (_currentData?.modsFetched || !_currentData || !_currentVersion) return;
+    if (_fetchingMods) return _fetchingMods;
+
+    _fetchingMods = retry(() =>
+      fetchModsJson(_currentVersion!, (receivedBytes, totalBytes) => {
+        loadProgressStore.set([receivedBytes, totalBytes]);
+      }),
+    )
+      .then((modsJson) => {
+        _currentData!.setRawModData(modsJson);
+        set(_currentData);
+      })
+      .finally(() => {
+        _fetchingMods = null;
+        loadProgressStore.set(null);
+      });
+    return _fetchingMods;
+  },
   async setVersion(
     version: string,
     locale: string | null,
     enabledMods: string[] = [],
+    fetchModData = enabledMods.length > 0,
   ) {
     if (_hasSetVersion) throw new Error("can only set version once");
     _hasSetVersion = true;
@@ -2342,7 +2366,7 @@ export const data = {
         ),
     ]);
     let modsJson: Record<string, { info: any; data: any[] }> | undefined;
-    if (dataJson.mods && enabledMods.length > 0) {
+    if (dataJson.mods && fetchModData) {
       modsJson = await retry(() =>
         fetchModsJson(version, (receivedBytes, totalBytes) => {
           totals[3] = totalBytes;
@@ -2367,6 +2391,8 @@ export const data = {
       modsJson,
       enabledMods,
     );
+    _currentData = cddaData;
+    _currentVersion = version;
     console.log(
       `Loaded data for version ${version} (build ${dataJson.build_number}, release ${dataJson.release})`,
     );

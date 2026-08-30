@@ -2,11 +2,11 @@
 import { setContext } from "svelte";
 import { t } from "@transifex/native";
 import { CddaData, mapType } from "./data";
-import { report } from "process";
 
 export let data: CddaData;
 export let enabledMods: string[];
 export let setModEnabled: (mod: string, enabled: boolean) => void;
+export let modId: string | undefined = undefined;
 
 function toggleMod(mod: string) {
   return (event: Event) => {
@@ -29,35 +29,6 @@ const reportedTypes = {
   proficiencies: t("Proficiencies"),
 };
 
-const reportedTypes2 = {
-  item: t("Items"),
-  recipe: t("Recipes"),
-  monster: t("Monsters"),
-  terrain: t("Terrain"),
-  furniture: t("Furniture"),
-  vehicle_part: t("Vehicle Parts"),
-  vehicle: t("Vehicles"),
-  profession: t("Professions"),
-  skill: t("Skills"),
-  proficiency: t("Proficiencies"),
-  bionic: t("Bionics"),
-  mutation: t("Mutations"),
-  construction: t("Constructions"),
-  effect_type: t("Effects"),
-  martial_art: t("Martial Arts"),
-  technique: t("Techniques"),
-  mission: t("Missions"),
-  weather_type: t("Weather Types"),
-  overmap_terrain: t("Overmap Terrain"),
-  overmap_special: t("Overmap Specials"),
-  map_extra: t("Map Extras"),
-  npc: t("NPCs"),
-  mapgen: t("Mapgens"),
-  scenario: t("Scenarios"),
-  achievement: t("Achievements"),
-  other: t("Other"),
-};
-
 const hiddenMods = new Set([
   // These mods don't affect the data in the Guide at all, so hide them.
   "cbm_slots",
@@ -74,61 +45,102 @@ const hiddenMods = new Set([
   "alt_map_key",
 ]);
 
+$: displayedMods = data.availableMods.filter(
+  (mod) => !hiddenMods.has(mod.id) && (!modId || mod.id === modId),
+);
+
 setContext("data", data);
 </script>
 
-<h1>{t("Mods")}</h1>
-{#each data.availableMods.filter((mod) => !hiddenMods.has(mod.id)) as mod}
-  {@const modData = data.getRawModData(mod.id)}
-  {@const countByType = modData.reduce((acc, item) => {
-    const mappedType = mapType(item.type);
-    const mappedTypeOrOther =
-      mappedType in reportedTypes ? mappedType : "other";
-    acc[mappedTypeOrOther] = (acc[mappedTypeOrOther] || 0) + 1;
-    return acc;
-  }, {})}
-  {@const otherTypes = [
-    ...modData
-      .reduce((acc, item) => {
-        const mappedType = mapType(item.type);
-        if (mappedType in reportedTypes) return acc;
-        acc.add(mappedType);
-        return acc;
-      }, new Set())
-      .values(),
-  ].sort()}
-  <section>
-    <h1 title={mod.id}>
-      <label class="checkbox">
-        <input
-          type="checkbox"
-          checked={enabledMods.includes(mod.id)}
-          on:change={toggleMod(mod.id)} />
-        {mod.label}
-      </label>
-    </h1>
-    <dl>
-      {#each Object.entries(reportedTypes) as [type, label]}
-        {#if countByType[type]}
-          {@const count = countByType[type]}
-          {@const catalogLink = `/${type}?mod=${encodeURIComponent(mod.id)}`}
-          <dt>
-            {#if enabledMods.includes(mod.id)}
-              <a href={catalogLink}>{label}</a>
-            {:else}
-              {label}
-            {/if}
-          </dt>
-          <dd title={type === "other" ? otherTypes.join(", ") : undefined}>
-            {count}
-          </dd>
-        {/if}
-      {/each}
-    </dl>
-    <p style="color: var(--cata-color-gray); font-style: italic">
-      {mod.description}
-    </p>
-  </section>
+{#if !modId}
+  <h1>{t("Mods")}</h1>
+  {#if displayedMods.length}
+    <section>
+      <ul>
+        {#each displayedMods as mod}
+          <li>
+            <a
+              href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
+                mod.id,
+              )}{location.search}">{mod.label}</a>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {:else}
+    <p>{t("No mods found.")}</p>
+  {/if}
 {:else}
-  <p>{t("No mods found.")}</p>
-{/each}
+  {#each displayedMods as mod}
+    {@const modData = data.getRawModData(mod.id)}
+    {@const countByType = modData.reduce((acc, item) => {
+      const mappedType = mapType(item.type);
+      const mappedTypeOrOther =
+        mappedType in reportedTypes ? mappedType : "other";
+      acc[mappedTypeOrOther] = (acc[mappedTypeOrOther] || 0) + 1;
+      return acc;
+    }, {})}
+    {@const otherTypes = [
+      ...modData
+        .reduce((acc, item) => {
+          const mappedType = mapType(item.type);
+          if (mappedType in reportedTypes) return acc;
+          acc.add(mappedType);
+          return acc;
+        }, new Set())
+        .values(),
+    ].sort()}
+    {@const enabledCheckboxId = `mod-enabled-${mod.id}`}
+    <h1 title={mod.id}>{mod.label}</h1>
+    <section>
+      <dl>
+        <dt>
+          <label for={enabledCheckboxId}>{t("Enabled")}</label>
+        </dt>
+        <dd>
+          <label class="checkbox enabled-checkbox">
+            <input
+              id={enabledCheckboxId}
+              aria-label={t("Enabled")}
+              type="checkbox"
+              checked={enabledMods.includes(mod.id)}
+              on:change={toggleMod(mod.id)} />
+          </label>
+        </dd>
+        {#if data.modsFetched}
+          {#each Object.entries(reportedTypes) as [type, label]}
+            {#if countByType[type]}
+              {@const count = countByType[type]}
+              {@const catalogLink = `/${type}?mod=${encodeURIComponent(mod.id)}`}
+              <dt>
+                {#if enabledMods.includes(mod.id)}
+                  <a href={catalogLink}>{label}</a>
+                {:else}
+                  {label}
+                {/if}
+              </dt>
+              <dd title={type === "other" ? otherTypes.join(", ") : undefined}>
+                {count}
+              </dd>
+            {/if}
+          {/each}
+        {/if}
+      </dl>
+      {#if !data.modsFetched}
+        <p><em>{t("Loading...")}</em></p>
+      {/if}
+      <p style="color: var(--cata-color-gray); font-style: italic">
+        {mod.description}
+      </p>
+    </section>
+  {:else}
+    <p>{t("Mod not found.")}</p>
+  {/each}
+{/if}
+
+<style>
+.enabled-checkbox > input[type="checkbox"] {
+  margin-right: 0;
+  transform: translateY(-0.1em);
+}
+</style>

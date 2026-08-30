@@ -55,8 +55,12 @@ const version = url.searchParams.get("v") ?? "latest";
 const locale = url.searchParams.get("lang");
 
 let enabledMods: string[] = url.searchParams.get("m")?.split(",") ?? [];
+const initialPath = location.pathname.slice(
+  import.meta.env.BASE_URL.length - 1,
+);
+const isModDetailPage = /^\/mod\/.+/.test(initialPath);
 
-data.setVersion(version, locale, enabledMods);
+data.setVersion(version, locale, enabledMods, isModDetailPage || undefined);
 
 const tilesets = [
   {
@@ -159,7 +163,18 @@ function load(noScroll: boolean = false) {
   }
 }
 
-$: if (item && item.id && $data && $data.byIdMaybe(item.type as any, item.id)) {
+$: if (item?.type === "mod" && $data) {
+  const modId = item.id;
+  const mod = modId
+    ? $data.availableMods.find((candidate) => candidate.id === modId)
+    : undefined;
+  document.title = `${mod?.label ?? t("Mods")} - The Hitchhiker's Guide to the Cataclysm`;
+} else if (
+  item &&
+  item.id &&
+  $data &&
+  $data.byIdMaybe(item.type as any, item.id)
+) {
   const it = $data.byId(item.type as any, item.id);
   document.title = `${singularName(
     it,
@@ -168,6 +183,10 @@ $: if (item && item.id && $data && $data.byIdMaybe(item.type as any, item.id)) {
   document.title = `${item.type} - The Hitchhiker's Guide to the Cataclysm`;
 } else {
   document.title = "The Hitchhiker's Guide to the Cataclysm";
+}
+
+$: if (item?.type === "mod" && item.id && $data && !$data.modsFetched) {
+  data.fetchMods();
 }
 
 $: {
@@ -409,8 +428,12 @@ function langHref(lang: string, href: string) {
 <main>
   {#if item}
     {#if $data}
-      {#if item.type === "mods"}
-        <ModCatalog data={$data} {enabledMods} {setModEnabled} />
+      {#if item.type === "mod"}
+        <ModCatalog
+          data={$data}
+          {enabledMods}
+          {setModEnabled}
+          modId={item.id || undefined} />
       {:else if item.id}
         {#key [item, enabledMods]}
           <Thing {item} data={$data} />
@@ -682,7 +705,7 @@ Anyway?`,
     </span>
   </p>
   <p class="data-options" style="display: flex; align-items: center;">
-    <a href="{import.meta.env.BASE_URL}mods{location.search}">{t("Mods")}</a>:
+    <a href="{import.meta.env.BASE_URL}mod{location.search}">{t("Mods")}</a>:
     <span style="margin-left: 0.5em">
       {#if $data && $data.availableMods.length === 0}
         <em style="color: var(--cata-color-gray)"
@@ -694,8 +717,12 @@ Anyway?`,
               >{t("No mods enabled.")}</em>
           {/if}
           {#each $data.activeMods.filter((m) => m !== "dda") as mod, i}
-            {#if i > 0},
-            {/if}{$data.availableMods.find((am) => am.id === mod)?.label ?? mod}
+            {#if i > 0}{", "}{/if}<a
+              href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
+                mod,
+              )}{location.search}"
+              >{$data.availableMods.find((am) => am.id === mod)?.label ??
+                mod}</a>
           {/each}
         {/key}
       {:else}
