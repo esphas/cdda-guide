@@ -1,9 +1,10 @@
 <script lang="ts">
 import { setContext } from "svelte";
 import { t } from "@transifex/native";
-import { CddaData, getAllObjectSources, mapType } from "./data";
+import { CddaData, getAllObjectSources, i18n, mapType } from "./data";
 import type { SupportedTypeMapped, SupportedTypesWithMapped } from "./types";
 import CatalogSection from "./CatalogSection.svelte";
+import JsonView from "./JsonView.svelte";
 
 export let data: CddaData;
 export let enabledMods: string[];
@@ -38,6 +39,44 @@ const reportedTypeEntries = Object.entries(reportedTypes) as [
   string,
 ][];
 
+const modCategoryNames = new Map<string, string>([
+  ["total_conversion", "TOTAL CONVERSIONS"],
+  ["content", "CORE CONTENT PACKS"],
+  ["items", "ITEM ADDITION MODS"],
+  ["creatures", "CREATURE MODS"],
+  ["misc_additions", "MISC ADDITIONS"],
+  ["buildings", "BUILDINGS MODS"],
+  ["vehicles", "VEHICLE MODS"],
+  ["rebalance", "REBALANCING MODS"],
+  ["magical", "MAGICAL MODS"],
+  ["item_exclude", "ITEM EXCLUSION MODS"],
+  ["monster_exclude", "MONSTER EXCLUSION MODS"],
+  ["graphical", "GRAPHICAL MODS"],
+  ["accessibility", "ACCESSIBILITY MODS"],
+  ["", "NO CATEGORY"],
+]);
+
+function groupModsByCategory(mods: typeof data.availableMods) {
+  const groups = new Map<string, typeof mods>();
+  for (const mod of mods) {
+    const category = mod.category ?? "";
+    groups.set(category, [...(groups.get(category) ?? []), mod]);
+  }
+  return [...groups.entries()].sort(([categoryA], [categoryB]) => {
+    const orderA = [...modCategoryNames.keys()].indexOf(categoryA);
+    const orderB = [...modCategoryNames.keys()].indexOf(categoryB);
+    if (orderA === -1 && orderB === -1)
+      return categoryA.localeCompare(categoryB);
+    if (orderA === -1) return 1;
+    if (orderB === -1) return -1;
+    return orderA - orderB;
+  });
+}
+
+function modCategoryName(category: string) {
+  return i18n.__(modCategoryNames.get(category) ?? category);
+}
+
 function catalogItems(
   mod: string,
   type: keyof SupportedTypesWithMapped,
@@ -50,6 +89,32 @@ function catalogItems(
         typeof item.id === "string" &&
         getAllObjectSources(item).some((source) => source.__mod === mod),
     );
+}
+
+function knownConflicts(conflicts: string[] | undefined) {
+  return (conflicts ?? []).flatMap((id) => {
+    const mod = data.availableMods.find((candidate) => candidate.id === id);
+    return mod ? [{ id, label: mod.label }] : [];
+  });
+}
+
+function conflictingEnabledMods(
+  modId: string,
+  conflicts: string[] | undefined,
+) {
+  return enabledMods.flatMap((enabledModId) => {
+    if (enabledModId === modId) return [];
+    const enabledModInfo = data.getModInfo(enabledModId);
+    const conflictsInEitherDirection =
+      conflicts?.includes(enabledModId) ||
+      enabledModInfo?.conflicts?.includes(modId);
+    const enabledMod = data.availableMods.find(
+      (candidate) => candidate.id === enabledModId,
+    );
+    return conflictsInEitherDirection && enabledMod
+      ? [{ id: enabledModId, label: enabledMod.label }]
+      : [];
+  });
 }
 
 const hiddenMods = new Set([
@@ -71,6 +136,7 @@ const hiddenMods = new Set([
 $: displayedMods = data.availableMods.filter(
   (mod) => !hiddenMods.has(mod.id) && (!modId || mod.id === modId),
 );
+$: displayedModGroups = groupModsByCategory(displayedMods);
 
 setContext("data", data);
 </script>
@@ -78,24 +144,33 @@ setContext("data", data);
 {#if !modId}
   <h1>{t("Mods")}</h1>
   {#if displayedMods.length}
-    <section>
-      <ul>
-        {#each displayedMods as mod}
-          <li>
-            <a
-              href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
-                mod.id,
-              )}{location.search}">{mod.label}</a>
-          </li>
-        {/each}
-      </ul>
-    </section>
+    {#each displayedModGroups as [category, mods]}
+      <section>
+        <h1>{modCategoryName(category)}</h1>
+        <ul>
+          {#each mods as mod}
+            <li>
+              <a
+                href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
+                  mod.id,
+                )}{location.search}">{mod.label}</a>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/each}
   {:else}
     <p>{t("No mods found.")}</p>
   {/if}
 {:else}
   {#each displayedMods as mod (mod.id)}
     {@const modData = data.getRawModData(mod.id)}
+    {@const modInfo = data.getModInfo(mod.id)}
+    {@const conflicts = knownConflicts(modInfo?.conflicts)}
+    {@const enabledConflicts = conflictingEnabledMods(
+      mod.id,
+      modInfo?.conflicts,
+    )}
     {@const countByType = modData.reduce((acc, item) => {
       const mappedType = mapType(item.type);
       const mappedTypeOrOther =
@@ -108,18 +183,53 @@ setContext("data", data);
     <section>
       <dl>
         <dt>
-          <label for={enabledCheckboxId}>{t("Enabled")}</label>
+          {#if enabledConflicts.length}
+            {t("Enabled")}
+          {:else}
+            <label for={enabledCheckboxId}>{t("Enabled")}</label>
+          {/if}
         </dt>
         <dd>
-          <label class="checkbox enabled-checkbox">
-            <input
-              id={enabledCheckboxId}
-              aria-label={t("Enabled")}
-              type="checkbox"
-              checked={enabledMods.includes(mod.id)}
-              on:change={toggleMod(mod.id)} />
-          </label>
+          {#if enabledConflicts.length}
+            {t("Conflicts with")}
+            {#each enabledConflicts as conflict, i}
+              {#if i > 0}{", "}{/if}
+              <a
+                href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
+                  conflict.id,
+                )}{location.search}">{conflict.label}</a>
+            {/each}
+          {:else}
+            <label class="checkbox enabled-checkbox">
+              <input
+                id={enabledCheckboxId}
+                aria-label={t("Enabled")}
+                type="checkbox"
+                checked={enabledMods.includes(mod.id)}
+                on:change={toggleMod(mod.id)} />
+            </label>
+          {/if}
         </dd>
+        {#if modInfo?.authors?.length}
+          <dt>{t("Authors")}</dt>
+          <dd>{modInfo.authors.join(", ")}</dd>
+        {/if}
+        {#if modInfo?.maintainers?.length}
+          <dt>{t("Maintainers")}</dt>
+          <dd>{modInfo.maintainers.join(", ")}</dd>
+        {/if}
+        {#if conflicts.length}
+          <dt>{t("Conflicts")}</dt>
+          <dd>
+            {#each conflicts as conflict, i}
+              {#if i > 0}{", "}{/if}
+              <a
+                href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
+                  conflict.id,
+                )}{location.search}">{conflict.label}</a>
+            {/each}
+          </dd>
+        {/if}
         {#if data.modsFetched}
           {#each reportedTypeEntries as [type, label]}
             {#if countByType[type]}
@@ -133,9 +243,7 @@ setContext("data", data);
       {#if !data.modsFetched}
         <p><em>{t("Loading...")}</em></p>
       {/if}
-      <p style="color: var(--cata-color-gray); font-style: italic">
-        {mod.description}
-      </p>
+      <p style="color: var(--cata-color-gray)">{mod.description}</p>
     </section>
     {#if enabledMods.includes(mod.id)}
       {#each reportedTypeEntries as [type, label]}
@@ -144,6 +252,12 @@ setContext("data", data);
           <CatalogSection {type} title={label} {items} />
         {/if}
       {/each}
+    {/if}
+    {#if modInfo}
+      <details>
+        <summary>{t("Raw JSON")}</summary>
+        <JsonView obj={modInfo} buildNumber={data.build_number} />
+      </details>
     {/if}
   {:else}
     <p>{t("Mod not found.")}</p>

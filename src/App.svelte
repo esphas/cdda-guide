@@ -598,6 +598,7 @@ Anyway?`,
         <a href="/conduct{location.search}">{t("Conducts")}</a>
       </li>
       <li><a href="/proficiency{location.search}">{t("Proficiencies")}</a></li>
+      <li><a href="/mod{location.search}">{t("Mods")}</a></li>
     </ul>
 
     <InterpolatedTranslation
@@ -694,32 +695,30 @@ Anyway?`,
       {/if}
     </span>
   </p>
-  <p class="data-options" style="display: flex; align-items: center;">
-    <a href="{import.meta.env.BASE_URL}mod{location.search}">{t("Mods")}</a>:
-    <span style="margin-left: 0.5em">
-      {#if $data && $data.availableMods.length === 0}
-        <em style="color: var(--cata-color-gray)"
-          >{t("Mods data not processed for this version.")}</em>
-      {:else if $data}
-        {#key enabledMods}
-          {#if $data.activeMods.length === 1}
-            <em style="color: var(--cata-color-gray)"
-              >{t("No mods enabled.")}</em>
-          {/if}
-          {#each $data.activeMods.filter((m) => m !== "dda") as mod, i}
-            {#if i > 0}{", "}{/if}<a
-              href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
-                mod,
-              )}{location.search}"
-              >{$data.availableMods.find((am) => am.id === mod)?.label ??
-                mod}</a>
-          {/each}
-        {/key}
-      {:else}
-        <em style="color: var(--cata-color-gray)">{t("Loading...")}</em>
-      {/if}
-    </span>
-  </p>
+  {#if !$data || $data.availableMods.length === 0 || enabledMods.length > 0}
+    <p class="data-options" style="display: flex; align-items: center;">
+      <a href="{import.meta.env.BASE_URL}mod{location.search}">{t("Mods")}</a>:
+      <span style="margin-left: 0.5em">
+        {#if $data && $data.availableMods.length === 0}
+          <em style="color: var(--cata-color-gray)"
+            >{t("Mods data not processed for this version.")}</em>
+        {:else if $data}
+          {#key enabledMods}
+            {#each enabledMods as mod, i}
+              {#if i > 0}{", "}{/if}<a
+                href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
+                  mod,
+                )}{location.search}"
+                >{$data.availableMods.find((am) => am.id === mod)?.label ??
+                  mod}</a>
+            {/each}
+          {/key}
+        {:else}
+          <em style="color: var(--cata-color-gray)">{t("Loading...")}</em>
+        {/if}
+      </span>
+    </p>
+  {/if}
 </main>
 
 <style>

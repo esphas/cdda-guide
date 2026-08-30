@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, fireEvent, render } from "@testing-library/svelte";
+import { cleanup, fireEvent, render, within } from "@testing-library/svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CddaData } from "./data";
@@ -18,16 +18,25 @@ const data = new CddaData(
       id: "test_mod",
       name: "Test Mod",
       description: "A test mod.",
+      category: "content",
     },
     other_mod: {
       id: "other_mod",
       name: "Other Mod",
       description: "Another mod.",
+      category: "total_conversion",
     },
   },
   {
     test_mod: {
-      info: { name: "Test Mod" },
+      info: {
+        type: "MOD_INFO",
+        id: "test_mod",
+        name: "Test Mod",
+        authors: ["Test Author"],
+        maintainers: ["Test Maintainer"],
+        conflicts: ["other_mod", "missing_mod"],
+      },
       data: [{ type: "GENERIC", id: "test_item", name: "Test item" }],
     },
     other_mod: {
@@ -46,16 +55,25 @@ const enabledData = new CddaData(
       id: "test_mod",
       name: "Test Mod",
       description: "A test mod.",
+      category: "content",
     },
     other_mod: {
       id: "other_mod",
       name: "Other Mod",
       description: "Another mod.",
+      category: "total_conversion",
     },
   },
   {
     test_mod: {
-      info: { name: "Test Mod" },
+      info: {
+        type: "MOD_INFO",
+        id: "test_mod",
+        name: "Test Mod",
+        authors: ["Test Author"],
+        maintainers: ["Test Maintainer"],
+        conflicts: ["other_mod", "missing_mod"],
+      },
       data: [{ type: "GENERIC", id: "test_item", name: "Test item" }],
     },
     other_mod: {
@@ -86,7 +104,12 @@ describe("ModCatalog", () => {
     expect(queryByText("A test mod.")).toBeNull();
     expect(queryByText("Items")).toBeNull();
     expect(document.querySelector("input[type=checkbox]")).toBeNull();
-    expect(link.closest("section")).toBeTruthy();
+    expect(link.closest("section")).toBe(
+      getByRole("heading", { name: "CORE CONTENT PACKS" }).closest("section"),
+    );
+    expect(getByRole("link", { name: "Other Mod" }).closest("section")).toBe(
+      getByRole("heading", { name: "TOTAL CONVERSIONS" }).closest("section"),
+    );
   });
 
   it("renders only the requested mod on a mod page", async () => {
@@ -109,7 +132,24 @@ describe("ModCatalog", () => {
     expect(setModEnabled).toHaveBeenCalledWith("test_mod", true);
     expect(getByText("Items")).toBeTruthy();
     expect(getByText("1")).toBeTruthy();
-    expect(queryByText("Other Mod")).toBeNull();
+    expect(
+      Array.from(
+        document.querySelectorAll("section dl dt"),
+        (term) => term.textContent,
+      ),
+    ).toEqual(["Enabled", "Authors", "Maintainers", "Conflicts", "Items"]);
+    expect(getByText("Test Author")).toBeTruthy();
+    expect(getByText("Test Maintainer")).toBeTruthy();
+    expect(getByRole("link", { name: "Other Mod" }).getAttribute("href")).toBe(
+      "/mod/other_mod",
+    );
+    expect(document.querySelector("section dl")?.textContent).not.toContain(
+      "missing_mod",
+    );
+    expect(queryByText("Other Mod", { selector: "h1" })).toBeNull();
+    const rawJson = getByText("Raw JSON").closest("details");
+    expect(rawJson?.textContent).toContain('"type": "MOD_INFO"');
+    expect(rawJson?.parentElement?.lastElementChild).toBe(rawJson);
   });
 
   it("renders each non-empty catalog inline when the mod is enabled", () => {
@@ -124,6 +164,40 @@ describe("ModCatalog", () => {
       getByText("Test item").closest("section"),
     );
     expect(getByText("Test item").getAttribute("href")).toBe("/item/test_item");
+  });
+
+  it("blocks enabling a mod when it declares a conflict with an enabled mod", () => {
+    const { getByText, getByRole, queryByRole } = render(ModCatalog, {
+      data,
+      enabledMods: ["other_mod"],
+      setModEnabled: vi.fn(),
+      modId: "test_mod",
+    });
+
+    expect(queryByRole("checkbox")).toBeNull();
+    const enabledValue = getByText("Conflicts with").closest("dd")!;
+    expect(
+      within(enabledValue)
+        .getByRole("link", { name: "Other Mod" })
+        .getAttribute("href"),
+    ).toBe("/mod/other_mod");
+  });
+
+  it("blocks enabling a mod when an enabled mod declares the conflict", () => {
+    const { getByText, getByRole, queryByRole } = render(ModCatalog, {
+      data,
+      enabledMods: ["test_mod"],
+      setModEnabled: vi.fn(),
+      modId: "other_mod",
+    });
+
+    expect(queryByRole("checkbox")).toBeNull();
+    const enabledValue = getByText("Conflicts with").closest("dd")!;
+    expect(
+      within(enabledValue)
+        .getByRole("link", { name: "Test Mod" })
+        .getAttribute("href"),
+    ).toBe("/mod/test_mod");
   });
 
   it("replaces inline catalogs when navigating between mod pages", async () => {

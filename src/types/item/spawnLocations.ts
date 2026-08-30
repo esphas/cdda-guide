@@ -199,9 +199,15 @@ async function yieldable<T>(
   }
 }
 
-const mapgensByOmtCache = new WeakMap<CddaData, Map<string, raw.Mapgen[]>>();
+type Revisioned<T> = { revision: number; value: T };
+
+const mapgensByOmtCache = new WeakMap<
+  CddaData,
+  Revisioned<Map<string, raw.Mapgen[]>>
+>();
 function getMapgensByOmt(data: CddaData): Map<string, raw.Mapgen[]> {
-  if (mapgensByOmtCache.has(data)) return mapgensByOmtCache.get(data)!;
+  const cached = mapgensByOmtCache.get(data);
+  if (cached?.revision === data.revision) return cached.value;
   const mapgensByOmt = new Map<string, raw.Mapgen[]>();
   const add = (id: string, mapgen: raw.Mapgen) => {
     if (!mapgensByOmt.has(id)) mapgensByOmt.set(id, []);
@@ -229,7 +235,7 @@ function getMapgensByOmt(data: CddaData): Map<string, raw.Mapgen[]> {
       }
     }
   }
-  mapgensByOmtCache.set(data, mapgensByOmt);
+  mapgensByOmtCache.set(data, { revision: data.revision, value: mapgensByOmt });
   return mapgensByOmt;
 }
 
@@ -339,11 +345,14 @@ export function overmapAppearance(
       : `appearance_unk`;
   }
 }
-function lazily<T extends object, U>(f: (x: T) => U): (x: T) => U {
-  const cache = new WeakMap<T, U>();
+function lazily<U>(f: (x: CddaData) => U): (x: CddaData) => U {
+  const cache = new WeakMap<CddaData, Revisioned<U>>();
   return (x) => {
-    if (!cache.has(x)) cache.set(x, f(x));
-    return cache.get(x)!;
+    const cached = cache.get(x);
+    if (cached?.revision === x.revision) return cached.value;
+    const value = f(x);
+    cache.set(x, { revision: x.revision, value });
+    return value;
   };
 }
 export const lootByOMSAppearance = lazily((data: CddaData) =>
@@ -550,9 +559,13 @@ function lootForChunks(
   return loot;
 }
 
-const lootForMapgenCache = new WeakMap<raw.Mapgen, Loot>();
+type DataRevisioned<T> = Revisioned<T> & { data: CddaData };
+
+const lootForMapgenCache = new WeakMap<raw.Mapgen, DataRevisioned<Loot>>();
 export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
-  if (lootForMapgenCache.has(mapgen)) return lootForMapgenCache.get(mapgen)!;
+  const cached = lootForMapgenCache.get(mapgen);
+  if (cached?.data === data && cached.revision === data.revision)
+    return cached.value;
   const palette = parsePalette(data, mapgen.object);
   const place_items: Loot[] = (mapgen.object.place_items ?? []).map(
     ({ item, chance = 100, repeat }) =>
@@ -619,17 +632,22 @@ export function getLootForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
     ...items,
   ]);
   loot.delete("null");
-  lootForMapgenCache.set(mapgen, loot);
+  lootForMapgenCache.set(mapgen, {
+    data,
+    revision: data.revision,
+    value: loot,
+  });
   return loot;
 }
 
-const furnitureForMapgenCache = new WeakMap<raw.Mapgen, Loot>();
+const furnitureForMapgenCache = new WeakMap<raw.Mapgen, DataRevisioned<Loot>>();
 export function getFurnitureForMapgen(
   data: CddaData,
   mapgen: raw.Mapgen,
 ): Loot {
-  if (furnitureForMapgenCache.has(mapgen))
-    return furnitureForMapgenCache.get(mapgen)!;
+  const cached = furnitureForMapgenCache.get(mapgen);
+  if (cached?.data === data && cached.revision === data.revision)
+    return cached.value;
   const palette = parseFurniturePalette(data, mapgen.object);
   const place_furniture: Loot[] = (mapgen.object.place_furniture ?? []).map(
     ({ furn }) => new Map([[furn, { prob: 1, expected: 1 }]]),
@@ -652,14 +670,19 @@ export function getFurnitureForMapgen(
   items.push(additional_items);
   const loot = collection(items);
   loot.delete("f_null");
-  furnitureForMapgenCache.set(mapgen, loot);
+  furnitureForMapgenCache.set(mapgen, {
+    data,
+    revision: data.revision,
+    value: loot,
+  });
   return loot;
 }
 
-const terrainForMapgenCache = new WeakMap<raw.Mapgen, Loot>();
+const terrainForMapgenCache = new WeakMap<raw.Mapgen, DataRevisioned<Loot>>();
 export function getTerrainForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
-  if (terrainForMapgenCache.has(mapgen))
-    return terrainForMapgenCache.get(mapgen)!;
+  const cached = terrainForMapgenCache.get(mapgen);
+  if (cached?.data === data && cached.revision === data.revision)
+    return cached.value;
   const palette = parseTerrainPalette(data, mapgen.object);
   const fill_ter = mapgen.object.fill_ter
     ? getMapgenValueDistribution(mapgen.object.fill_ter)
@@ -695,7 +718,11 @@ export function getTerrainForMapgen(data: CddaData, mapgen: raw.Mapgen): Loot {
   items.push(additional_items);
   const loot = collection(items);
   loot.delete("t_null");
-  terrainForMapgenCache.set(mapgen, loot);
+  terrainForMapgenCache.set(mapgen, {
+    data,
+    revision: data.revision,
+    value: loot,
+  });
   return loot;
 }
 
@@ -767,12 +794,17 @@ function parsePlaceMappingAlternative<T>(
   );
 }
 
-const paletteCache = new WeakMap<raw.PaletteData, Map<string, Loot>>();
+const paletteCache = new WeakMap<
+  raw.PaletteData,
+  DataRevisioned<Map<string, Loot>>
+>();
 export function parsePalette(
   data: CddaData,
   palette: raw.PaletteData,
 ): Map<string, Loot> {
-  if (paletteCache.has(palette)) return paletteCache.get(palette)!;
+  const cached = paletteCache.get(palette);
+  if (cached?.data === data && cached.revision === data.revision)
+    return cached.value;
   const sealed_item = parsePlaceMapping(
     palette.sealed_item,
     function* ({ item, items, chance = 100 }) {
@@ -864,17 +896,25 @@ export function parsePalette(
     } else return [];
   });
   const ret = mergePalettes([item, items, sealed_item, nested, ...palettes]);
-  paletteCache.set(palette, ret);
+  paletteCache.set(palette, {
+    data,
+    revision: data.revision,
+    value: ret,
+  });
   return ret;
 }
 
-const furniturePaletteCache = new WeakMap<raw.PaletteData, Map<string, Loot>>();
+const furniturePaletteCache = new WeakMap<
+  raw.PaletteData,
+  DataRevisioned<Map<string, Loot>>
+>();
 export function parseFurniturePalette(
   data: CddaData,
   palette: raw.PaletteData,
 ): Map<string, Loot> {
-  if (furniturePaletteCache.has(palette))
-    return furniturePaletteCache.get(palette)!;
+  const cached = furniturePaletteCache.get(palette);
+  if (cached?.data === data && cached.revision === data.revision)
+    return cached.value;
   const furniture = parsePlaceMappingAlternative(
     palette.furniture,
     function* (furn) {
@@ -904,17 +944,25 @@ export function parseFurniturePalette(
     } else return [];
   });
   const ret = mergePalettes([furniture, ...palettes]);
-  furniturePaletteCache.set(palette, ret);
+  furniturePaletteCache.set(palette, {
+    data,
+    revision: data.revision,
+    value: ret,
+  });
   return ret;
 }
 
-const terrainPaletteCache = new WeakMap<raw.PaletteData, Map<string, Loot>>();
+const terrainPaletteCache = new WeakMap<
+  raw.PaletteData,
+  DataRevisioned<Map<string, Loot>>
+>();
 export function parseTerrainPalette(
   data: CddaData,
   palette: raw.PaletteData,
 ): Map<string, Loot> {
-  if (terrainPaletteCache.has(palette))
-    return terrainPaletteCache.get(palette)!;
+  const cached = terrainPaletteCache.get(palette);
+  if (cached?.data === data && cached.revision === data.revision)
+    return cached.value;
   const terrain = parsePlaceMappingAlternative(
     palette.terrain,
     function* (ter) {
@@ -944,6 +992,10 @@ export function parseTerrainPalette(
     } else return [];
   });
   const ret = mergePalettes([terrain, ...palettes]);
-  terrainPaletteCache.set(palette, ret);
+  terrainPaletteCache.set(palette, {
+    data,
+    revision: data.revision,
+    value: ret,
+  });
   return ret;
 }

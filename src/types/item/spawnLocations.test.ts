@@ -5,6 +5,7 @@ import {
   collection,
   getFurnitureForMapgen,
   getLootForMapgen,
+  lootByOMSAppearance,
   parseItemGroup,
   parsePalette,
   repeatChance,
@@ -426,6 +427,69 @@ describe("loot", () => {
     //   e.v. for one chance = 75% * 2/3 = 0.5
     //   4x 0.5 = 2
     expect(loot.get("item_b")!.expected.toFixed(2)).toEqual("2.00");
+  });
+
+  it("invalidates cached loot when enabled mods change", async () => {
+    const data = new CddaData(
+      [
+        {
+          type: "mapgen",
+          method: "json",
+          om_terrain: "test_ter",
+          object: {
+            fill_ter: "t_floor",
+            rows: [],
+            place_loot: [{ group: "test_group", x: 0, y: 0 }],
+          },
+        } as Mapgen,
+        {
+          type: "item_group",
+          id: "test_group",
+          subtype: "collection",
+          items: ["base_item"],
+        } as ItemGroupData,
+        {
+          type: "overmap_terrain",
+          id: "test_ter",
+          name: "test terrain",
+          sym: "T",
+          color: "green",
+        },
+        {
+          type: "overmap_special",
+          id: "test_special",
+          overmaps: [{ point: [0, 0, 0], overmap: "test_ter" }],
+        },
+      ],
+      undefined,
+      undefined,
+      undefined,
+      {
+        test_mod: {
+          info: { name: "Test Mod" },
+          data: [
+            {
+              type: "item_group",
+              id: "test_group",
+              "copy-from": "test_group",
+              subtype: "collection",
+              items: ["mod_item"],
+            },
+          ],
+        },
+      },
+    );
+    const mapgen = data.byType("mapgen")[0];
+
+    expect([...getLootForMapgen(data, mapgen).keys()]).toEqual(["base_item"]);
+    expect([
+      ...[...(await lootByOMSAppearance(data))][0][1].loot.keys(),
+    ]).toEqual(["base_item"]);
+    data.setEnabledMods(["test_mod"]);
+    expect([...getLootForMapgen(data, mapgen).keys()]).toEqual(["mod_item"]);
+    expect([
+      ...[...(await lootByOMSAppearance(data))][0][1].loot.keys(),
+    ]).toEqual(["mod_item"]);
   });
 });
 
