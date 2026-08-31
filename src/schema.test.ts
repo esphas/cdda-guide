@@ -78,6 +78,8 @@ const all = data._raw
 
 const skipped = new Set<string>([
   JSON.stringify("ch_sheet_metal_small"), // broken "using"
+  // Invalid weighted chunks entry introduced by CDDA commit 08592f5cf3.
+  JSON.stringify(JSON.stringify(["microlab_generic_edge"])),
 ]);
 
 test.each(all)("schema matches %s %s", (type, id, obj) => {
