@@ -258,92 +258,99 @@ export function asKilograms(string: string | number): string {
   return `${(g / 1000).toFixed(2)} kg`;
 }
 
+/**
+ * An immutable view of one loaded game-data snapshot.
+ *
+ * Methods may populate internal caches, but the data visible through this
+ * class does not change after construction. To load another version or data
+ * configuration, construct and publish another CddaData instance.
+ */
 export class CddaData {
-  _raw: any[];
-  _byType: Map<string, any[]> = new Map();
-  _byTypeById: Map<string, Map<string, any>> = new Map();
-  _abstractsByType: Map<string, Map<string, any>> = new Map();
-  _toolReplacements: Map<string, string[]> | null = null;
-  _craftingPseudoItems: Map<string, string> = new Map();
-  _migrations: Map<string, string> = new Map();
-  _flattenCache: Map<any, any> = new Map();
-  _nestedMapgensById: Map<string, Mapgen[]> = new Map();
+  readonly #raw: any[];
+  #byType: Map<string, any[]> = new Map();
+  #byTypeById: Map<string, Map<string, any>> = new Map();
+  #abstractsByType: Map<string, Map<string, any>> = new Map();
+  #toolReplacements: Map<string, string[]> | null = null;
+  #craftingPseudoItems: Map<string, string> = new Map();
+  #migrations: Map<string, string> = new Map();
+  #flattenCache: Map<any, any> = new Map();
+  #nestedMapgensById: Map<string, Mapgen[]> = new Map();
 
-  release: any;
-  build_number: string | undefined;
+  readonly release: any;
+  readonly build_number: string | undefined;
 
   constructor(raw: any[], build_number?: string, release?: any) {
     this.release = release;
     this.build_number = build_number;
     // For some reason O—G has the string "mapgen" as one of its objects.
-    this._raw = raw.filter((x) => typeof x === "object");
+    this.#raw = raw.filter((x) => typeof x === "object");
     for (const obj of raw) {
       if (!Object.hasOwnProperty.call(obj, "type")) continue;
       if (obj.type === "MIGRATION") {
         for (const id of typeof obj.id === "string" ? [obj.id] : obj.id) {
           const { replace } = obj;
-          this._migrations.set(id, replace);
+          this.#migrations.set(id, replace);
         }
         continue;
       }
       const mappedType = mapType(obj.type);
-      if (!this._byType.has(mappedType)) this._byType.set(mappedType, []);
-      this._byType.get(mappedType)!.push(obj);
+      if (!this.#byType.has(mappedType)) this.#byType.set(mappedType, []);
+      this.#byType.get(mappedType)!.push(obj);
       if (Object.hasOwnProperty.call(obj, "id")) {
-        if (!this._byTypeById.has(mappedType))
-          this._byTypeById.set(mappedType, new Map());
+        if (!this.#byTypeById.has(mappedType))
+          this.#byTypeById.set(mappedType, new Map());
         if (typeof obj.id === "string")
-          this._byTypeById.get(mappedType)!.set(obj.id, obj);
+          this.#byTypeById.get(mappedType)!.set(obj.id, obj);
         else if (Array.isArray(obj.id))
           for (const id of obj.id)
-            this._byTypeById.get(mappedType)!.set(id, obj);
+            this.#byTypeById.get(mappedType)!.set(id, obj);
 
         // TODO: proper alias handling. We want to e.g. be able to collapse them in loot tables.
         if (Array.isArray(obj.alias))
           for (const id of obj.alias)
-            this._byTypeById.get(mappedType)!.set(id, obj);
+            this.#byTypeById.get(mappedType)!.set(id, obj);
         else if (typeof obj.alias === "string")
-          this._byTypeById.get(mappedType)!.set(obj.alias, obj);
+          this.#byTypeById.get(mappedType)!.set(obj.alias, obj);
       }
       // recipes are id'd by their result
       if (
         (mappedType === "recipe" || mappedType === "uncraft") &&
         Object.hasOwnProperty.call(obj, "result")
       ) {
-        if (!this._byTypeById.has(mappedType))
-          this._byTypeById.set(mappedType, new Map());
+        if (!this.#byTypeById.has(mappedType))
+          this.#byTypeById.set(mappedType, new Map());
         const id =
           obj.result +
           (obj.variant && !obj.abstract ? "_" + obj.variant : "") +
           (obj.id_suffix ? "_" + obj.id_suffix : "");
-        this._byTypeById.get(mappedType)!.set(id, obj);
+        this.#byTypeById.get(mappedType)!.set(id, obj);
       }
       if (
         mappedType === "monstergroup" &&
         Object.hasOwnProperty.call(obj, "name")
       ) {
-        if (!this._byTypeById.has(mappedType))
-          this._byTypeById.set(mappedType, new Map());
+        if (!this.#byTypeById.has(mappedType))
+          this.#byTypeById.set(mappedType, new Map());
         const id = obj.name;
-        this._byTypeById.get(mappedType)!.set(id, obj);
+        this.#byTypeById.get(mappedType)!.set(id, obj);
       }
       if (Object.hasOwnProperty.call(obj, "abstract")) {
-        if (!this._abstractsByType.has(mappedType))
-          this._abstractsByType.set(mappedType, new Map());
-        this._abstractsByType.get(mappedType)!.set(obj.abstract, obj);
+        if (!this.#abstractsByType.has(mappedType))
+          this.#abstractsByType.set(mappedType, new Map());
+        this.#abstractsByType.get(mappedType)!.set(obj.abstract, obj);
       }
 
       if (Object.hasOwnProperty.call(obj, "crafting_pseudo_item")) {
-        this._craftingPseudoItems.set(obj.crafting_pseudo_item, obj.id);
+        this.#craftingPseudoItems.set(obj.crafting_pseudo_item, obj.id);
       }
 
       if (Object.hasOwnProperty.call(obj, "nested_mapgen_id")) {
-        if (!this._nestedMapgensById.has(obj.nested_mapgen_id))
-          this._nestedMapgensById.set(obj.nested_mapgen_id, []);
-        this._nestedMapgensById.get(obj.nested_mapgen_id)!.push(obj);
+        if (!this.#nestedMapgensById.has(obj.nested_mapgen_id))
+          this.#nestedMapgensById.set(obj.nested_mapgen_id, []);
+        this.#nestedMapgensById.get(obj.nested_mapgen_id)!.push(obj);
       }
     }
-    this._byTypeById
+    this.#byTypeById
       .get("item_group")
       ?.set("EMPTY_GROUP", { id: "EMPTY_GROUP", entries: [] });
   }
@@ -353,11 +360,11 @@ export class CddaData {
     id: string,
   ): (SupportedTypesWithMapped[TypeName] & { __filename: string }) | undefined {
     if (typeof id !== "string") throw new Error("Requested non-string id");
-    const byId = this._byTypeById.get(type);
-    if (type === "item" && !byId?.has(id) && this._migrations.has(id))
-      return this.byIdMaybe(type, this._migrations.get(id)!);
+    const byId = this.#byTypeById.get(type);
+    if (type === "item" && !byId?.has(id) && this.#migrations.has(id))
+      return this.byIdMaybe(type, this.#migrations.get(id)!);
     const obj = byId?.get(id);
-    if (obj) return this._flatten(obj);
+    if (obj) return this.flatten(obj);
   }
 
   byId<TypeName extends keyof SupportedTypesWithMapped>(
@@ -373,7 +380,7 @@ export class CddaData {
   byType<TypeName extends keyof SupportedTypesWithMapped>(
     type: TypeName,
   ): SupportedTypesWithMapped[TypeName][] {
-    return this._byType.get(type)?.map((x) => this._flatten(x)) ?? [];
+    return this.#byType.get(type)?.map((x) => this.flatten(x)) ?? [];
   }
 
   abstractById<TypeName extends keyof SupportedTypesWithMapped>(
@@ -381,47 +388,47 @@ export class CddaData {
     id: string,
   ): object | undefined /* abstracts don't have ids, for instance */ {
     if (typeof id !== "string") throw new Error("Requested non-string id");
-    const obj = this._abstractsByType.get(type)?.get(id);
-    if (obj) return this._flatten(obj);
+    const obj = this.#abstractsByType.get(type)?.get(id);
+    if (obj) return this.flatten(obj);
   }
 
   replacementTools(type: string): string[] {
-    if (!this._toolReplacements) {
-      this._toolReplacements = new Map();
+    if (!this.#toolReplacements) {
+      this.#toolReplacements = new Map();
       for (const obj of this.byType("item")) {
         if (
           isItemSubtype("TOOL", obj) &&
           Object.hasOwnProperty.call(obj, "sub") &&
           obj.sub
         ) {
-          if (!this._toolReplacements.has(obj.sub))
-            this._toolReplacements.set(obj.sub, []);
-          this._toolReplacements.get(obj.sub)!.push(obj.id);
+          if (!this.#toolReplacements.has(obj.sub))
+            this.#toolReplacements.set(obj.sub, []);
+          this.#toolReplacements.get(obj.sub)!.push(obj.id);
         }
       }
     }
-    return this._toolReplacements.get(type) ?? [];
+    return this.#toolReplacements.get(type) ?? [];
   }
 
   craftingPseudoItem(id: string): string | undefined {
-    return this._craftingPseudoItems.get(id);
+    return this.#craftingPseudoItems.get(id);
   }
 
   nestedMapgensById(id: string): Mapgen[] | undefined {
-    return this._nestedMapgensById.get(id);
+    return this.#nestedMapgensById.get(id);
   }
 
-  all(): SupportedTypeMapped[] {
-    return this._raw;
+  all(): readonly SupportedTypeMapped[] {
+    return this.#raw;
   }
 
-  _flatten<T = any>(_obj: T): T {
+  flatten<T = any>(_obj: T): T {
     const obj: any = _obj;
-    if (this._flattenCache.has(obj)) return this._flattenCache.get(obj);
+    if (this.#flattenCache.has(obj)) return this.#flattenCache.get(obj);
     const parent =
       "copy-from" in obj
-        ? (this._byTypeById.get(mapType(obj.type))?.get(obj["copy-from"]) ??
-          this._abstractsByType.get(mapType(obj.type))?.get(obj["copy-from"]))
+        ? (this.#byTypeById.get(mapType(obj.type))?.get(obj["copy-from"]) ??
+          this.#abstractsByType.get(mapType(obj.type))?.get(obj["copy-from"]))
         : null;
     if ("copy-from" in obj && !parent)
       console.error(
@@ -432,14 +439,14 @@ export class CddaData {
     if (parent === obj) {
       // Working around bad data upstream, see: https://github.com/CleverRaven/Cataclysm-DDA/pull/53930
       console.warn("Object copied from itself:", obj);
-      this._flattenCache.set(obj, obj);
+      this.#flattenCache.set(obj, obj);
       return obj;
     }
     if (!parent) {
-      this._flattenCache.set(obj, obj);
+      this.#flattenCache.set(obj, obj);
       return obj;
     }
-    const { abstract, ...parentProps } = this._flatten(parent);
+    const { abstract, ...parentProps } = this.flatten(parent);
     const ret = { ...parentProps, ...obj };
     if (parentProps.vitamins && obj.vitamins) {
       ret.vitamins = [
@@ -728,14 +735,14 @@ export class CddaData {
         }
       }
     }
-    this._flattenCache.set(obj, ret);
+    this.#flattenCache.set(obj, ret);
     return ret;
   }
 
-  _cachedDeathDrops: Map<string, Loot> = new Map();
+  #cachedDeathDrops: Map<string, Loot> = new Map();
   flatDeathDrops(mon_id: string): Loot {
-    if (this._cachedDeathDrops.has(mon_id))
-      return this._cachedDeathDrops.get(mon_id)!;
+    if (this.#cachedDeathDrops.has(mon_id))
+      return this.#cachedDeathDrops.get(mon_id)!;
     const mon = this.byId("monster", mon_id);
     const ret = mon.death_drops
       ? this.flattenItemGroupLoot(
@@ -745,28 +752,28 @@ export class CddaData {
           },
         )
       : new Map();
-    this._cachedDeathDrops.set(mon_id, ret);
+    this.#cachedDeathDrops.set(mon_id, ret);
     return ret;
   }
 
-  _cachedUncraftRecipes: Map<string, Recipe> | null = null;
+  #cachedUncraftRecipes: Map<string, Recipe> | null = null;
   uncraftRecipe(item_id: string): Recipe | undefined {
-    if (!this._cachedUncraftRecipes) {
-      this._cachedUncraftRecipes = new Map();
+    if (!this.#cachedUncraftRecipes) {
+      this.#cachedUncraftRecipes = new Map();
       for (const recipe of this.byType("recipe"))
         if (recipe.result && recipe.reversible)
-          this._cachedUncraftRecipes.set(recipe.result, recipe);
+          this.#cachedUncraftRecipes.set(recipe.result, recipe);
       for (const recipe of this.byType("uncraft"))
         if (recipe.result)
-          this._cachedUncraftRecipes.set(recipe.result, recipe);
+          this.#cachedUncraftRecipes.set(recipe.result, recipe);
     }
-    return this._cachedUncraftRecipes.get(item_id);
+    return this.#cachedUncraftRecipes.get(item_id);
   }
 
-  _cachedMapgenSpawnItems = new Map<Mapgen, string[]>();
+  #cachedMapgenSpawnItems = new Map<Mapgen, string[]>();
   mapgenSpawnItems(mapgen: Mapgen): string[] {
-    if (this._cachedMapgenSpawnItems.has(mapgen))
-      return this._cachedMapgenSpawnItems.get(mapgen)!;
+    if (this.#cachedMapgenSpawnItems.has(mapgen))
+      return this.#cachedMapgenSpawnItems.get(mapgen)!;
     const palette = new Map<string, Set<string>>();
     const add = (c: string, item_id: MapgenValue) => {
       if (typeof item_id === "string") {
@@ -867,13 +874,13 @@ export class CddaData {
       if (typeof v.item === "string") ret.add(v.item);
 
     const r = [...ret];
-    this._cachedMapgenSpawnItems.set(mapgen, r);
+    this.#cachedMapgenSpawnItems.set(mapgen, r);
     return r;
   }
 
   // Top-level item groups can have the "old" subtype (which is the default if
   // no other subtype is specified).
-  _convertedTopLevelItemGroups = new Map<ItemGroup, ItemGroupData>();
+  #convertedTopLevelItemGroups = new Map<ItemGroup, ItemGroupData>();
   convertTopLevelItemGroup(group: ItemGroup): ItemGroupData {
     if (group.subtype === "distribution" || group.subtype === "collection") {
       return group;
@@ -882,8 +889,8 @@ export class CddaData {
       !group.subtype ||
       group.subtype === "old"
     ) {
-      if (this._convertedTopLevelItemGroups.has(group))
-        return this._convertedTopLevelItemGroups.get(group)!;
+      if (this.#convertedTopLevelItemGroups.has(group))
+        return this.#convertedTopLevelItemGroups.get(group)!;
       // Convert old-style item groups to new-style
       const normalizedEntries: ItemGroupEntry[] = [];
       for (const item of group.items ?? [])
@@ -900,7 +907,7 @@ export class CddaData {
         subtype: "distribution",
         entries: normalizedEntries,
       };
-      this._convertedTopLevelItemGroups.set(group, ret);
+      this.#convertedTopLevelItemGroups.set(group, ret);
       return ret;
     } else throw new Error("unknown item group subtype: " + group.subtype);
   }
@@ -910,7 +917,7 @@ export class CddaData {
   }
 
   // This is a WeakMap because flattenItemGroup is sometimes called with temporary objects
-  _flattenItemGroupCache = new WeakMap<
+  #flattenItemGroupCache = new WeakMap<
     ItemGroupData,
     { id: string; prob: number; expected: number; count: [number, number] }[]
   >();
@@ -921,8 +928,8 @@ export class CddaData {
   flattenItemGroup(
     group: ItemGroupData,
   ): { id: string; prob: number; expected: number; count: [number, number] }[] {
-    if (this._flattenItemGroupCache.has(group))
-      return this._flattenItemGroupCache.get(group)!;
+    if (this.#flattenItemGroupCache.has(group))
+      return this.#flattenItemGroupCache.get(group)!;
     const retMap = new Map<
       string,
       { prob: number; expected: number; count: [number, number] }
@@ -1173,7 +1180,7 @@ export class CddaData {
     }
 
     const r = [...retMap.entries()].map(([id, v]) => ({ id, ...v }));
-    this._flattenItemGroupCache.set(group, r);
+    this.#flattenItemGroupCache.set(group, r);
     return r;
   }
 
@@ -1186,16 +1193,16 @@ export class CddaData {
     );
   }
 
-  _flatRequirementCache = new WeakMap<any, { id: string; count: number }[][]>();
-  _flatRequirementCacheExpandSubs = new WeakMap<
+  #flatRequirementCache = new WeakMap<any, { id: string; count: number }[][]>();
+  #flatRequirementCacheExpandSubs = new WeakMap<
     any,
     { id: string; count: number }[][]
   >();
-  _flatRequirementCacheOnlyRecoverable = new WeakMap<
+  #flatRequirementCacheOnlyRecoverable = new WeakMap<
     any,
     { id: string; count: number }[][]
   >();
-  _flatRequirementCacheForOpts(opts?: {
+  #flatRequirementCacheForOpts(opts?: {
     expandSubstitutes?: boolean;
     onlyRecoverable?: boolean;
   }): WeakMap<any, { id: string; count: number }[][]> {
@@ -1203,16 +1210,16 @@ export class CddaData {
       throw new Error(
         "didn't expect to see expandSubstitutes && onlyRecoverable",
       );
-    if (opts?.expandSubstitutes) return this._flatRequirementCacheExpandSubs;
-    if (opts?.onlyRecoverable) return this._flatRequirementCacheOnlyRecoverable;
-    return this._flatRequirementCache;
+    if (opts?.expandSubstitutes) return this.#flatRequirementCacheExpandSubs;
+    if (opts?.onlyRecoverable) return this.#flatRequirementCacheOnlyRecoverable;
+    return this.#flatRequirementCache;
   }
   flattenRequirement<T>(
     required: (T | T[])[],
     get: (x: Requirement) => (T | T[])[] | undefined,
     opts?: { expandSubstitutes?: boolean; onlyRecoverable?: boolean },
   ): { id: string; count: number }[][] {
-    const cache = this._flatRequirementCacheForOpts(opts);
+    const cache = this.#flatRequirementCacheForOpts(opts);
     if (cache.has(required)) return cache.get(required)!;
     const {
       expandSubstitutes: doExpandSubstitutes = false,
@@ -1249,7 +1256,7 @@ export class CddaData {
     return ret;
   }
 
-  _normalizeRequirementsCache = new Map<
+  #normalizeRequirementsCache = new Map<
     RequirementData & { using?: Recipe["using"] },
     ReturnType<typeof this.normalizeRequirementsForDisassembly>
   >();
@@ -1260,8 +1267,8 @@ export class CddaData {
     qualities: QualityRequirement[][];
     components: [string, number][][];
   } {
-    if (this._normalizeRequirementsCache.has(requirement))
-      return this._normalizeRequirementsCache.get(requirement)!;
+    if (this.#normalizeRequirementsCache.has(requirement))
+      return this.#normalizeRequirementsCache.get(requirement)!;
     const { tools, qualities, components } = this.normalizeRequirements(
       requirement,
       { onlyRecoverable: true },
@@ -1341,7 +1348,7 @@ export class CddaData {
       components: filteredComponents,
     };
 
-    this._normalizeRequirementsCache.set(requirement, ret);
+    this.#normalizeRequirementsCache.set(requirement, ret);
 
     return ret;
   }
@@ -1401,12 +1408,12 @@ export class CddaData {
     return this.normalizeRequirementUsing(requirements, opts);
   }
 
-  _itemComponentCache: {
+  #itemComponentCache: {
     byTool: Map<string, Set<string>>;
     byComponent: Map<string, Set<string>>;
   } | null = null;
   getItemComponents() {
-    if (this._itemComponentCache) return this._itemComponentCache;
+    if (this.#itemComponentCache) return this.#itemComponentCache;
     const itemsByTool = new Map<string, Set<string>>();
     const itemsByComponent = new Map<string, Set<string>>();
 
@@ -1437,20 +1444,20 @@ export class CddaData {
           itemsByComponent.get(component.id)!.add(recipe.result);
         }
     });
-    this._itemComponentCache = {
+    this.#itemComponentCache = {
       byTool: itemsByTool,
       byComponent: itemsByComponent,
     };
-    return this._itemComponentCache;
+    return this.#itemComponentCache;
   }
 
-  _constructionComponentCache: {
+  #constructionComponentCache: {
     byTool: Map<string, Set<string>>;
     byComponent: Map<string, Set<string>>;
   } | null = null;
   getConstructionComponents() {
-    if (this._constructionComponentCache)
-      return this._constructionComponentCache;
+    if (this.#constructionComponentCache)
+      return this.#constructionComponentCache;
     const constructionsByComponent = new Map<string, Set<string>>();
     const constructionsByTool = new Map<string, Set<string>>();
     for (const c of this.byType("construction")) {
@@ -1468,11 +1475,11 @@ export class CddaData {
           constructionsByTool.get(tool)!.add(c.id);
         }
     }
-    this._constructionComponentCache = {
+    this.#constructionComponentCache = {
       byTool: constructionsByTool,
       byComponent: constructionsByComponent,
     };
-    return this._constructionComponentCache;
+    return this.#constructionComponentCache;
   }
 
   normalizeItemGroup(
@@ -1852,10 +1859,10 @@ export const getVehiclePartIdAndVariant = (
   return [compositePartId, ""];
 };
 
-const _itemGroupFromVehicleCache = new Map<Vehicle, ItemGroupData>();
+const itemGroupFromVehicleCache = new Map<Vehicle, ItemGroupData>();
 export function itemGroupFromVehicle(vehicle: Vehicle): ItemGroupData {
-  if (_itemGroupFromVehicleCache.has(vehicle))
-    return _itemGroupFromVehicleCache.get(vehicle)!;
+  if (itemGroupFromVehicleCache.has(vehicle))
+    return itemGroupFromVehicleCache.get(vehicle)!;
   const ret: ItemGroupData = {
     subtype: "collection",
     entries: (vehicle.items ?? []).map((it) => {
@@ -1881,7 +1888,7 @@ export function itemGroupFromVehicle(vehicle: Vehicle): ItemGroupData {
     }),
   };
 
-  _itemGroupFromVehicleCache.set(vehicle, ret);
+  itemGroupFromVehicleCache.set(vehicle, ret);
   return ret;
 }
 
@@ -1923,14 +1930,18 @@ export function breathabilityFromRating(br: BreathabilityRating): number {
 const fetchJsonWithProgress = (
   url: string,
   progress: (receivedBytes: number, totalBytes: number) => void,
+  signal: AbortSignal,
 ): Promise<any> => {
   // GoogleBot has a 15MB limit on the size of the response, so we need to
   // serve it double-gzipped JSON.
   if (/latest/.test(url) && /googlebot/i.test(navigator.userAgent))
-    return fetchGzippedJsonForGoogleBot(url);
+    return fetchGzippedJsonForGoogleBot(url, signal);
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.onload = (e) => {
+    const cleanup = () => signal.removeEventListener("abort", abort);
+    const abort = () => xhr.abort();
+    xhr.onload = () => {
+      cleanup();
       if (xhr.response) resolve(xhr.response);
       else reject(`Unknown error fetching JSON from ${url}`);
     };
@@ -1938,20 +1949,30 @@ const fetchJsonWithProgress = (
       if (e.lengthComputable) progress(e.loaded, e.total);
     };
     xhr.onerror = () => {
+      cleanup();
       reject(`Error ${xhr.status} (${xhr.statusText}) fetching ${url}`);
     };
     xhr.onabort = () => {
-      reject(`Aborted while fetching ${url}`);
+      cleanup();
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
     };
+    if (signal.aborted) {
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    signal.addEventListener("abort", abort, { once: true });
     xhr.open("GET", url);
     xhr.responseType = "json";
     xhr.send();
   });
 };
 
-async function fetchGzippedJsonForGoogleBot(url: string): Promise<any> {
+async function fetchGzippedJsonForGoogleBot(
+  url: string,
+  signal: AbortSignal,
+): Promise<any> {
   const gzUrl = url.replace(/latest/, "latest.gz");
-  const res = await fetch(gzUrl, { mode: "cors" });
+  const res = await fetch(gzUrl, { mode: "cors", signal });
   if (!res.ok)
     throw new Error(`Error ${res.status} (${res.statusText}) fetching ${url}`);
   if (!res.body)
@@ -2005,10 +2026,12 @@ const fetchJsonWithIncorrectProgress = async (
 const fetchJson = async (
   version: string,
   progress: (receivedBytes: number, totalBytes: number) => void,
+  signal: AbortSignal,
 ) => {
   return fetchJsonWithProgress(
     `https://raw.githubusercontent.com/nornagon/cdda-data/main/data/${version}/all.json`,
     progress,
+    signal,
   );
 };
 
@@ -2016,18 +2039,24 @@ const fetchLocaleJson = async (
   version: string,
   locale: string,
   progress: (receivedBytes: number, totalBytes: number) => void,
+  signal: AbortSignal,
 ) => {
   return fetchJsonWithProgress(
     `https://raw.githubusercontent.com/nornagon/cdda-data/main/data/${version}/lang/${locale}.json`,
     progress,
+    signal,
   );
 };
 
-async function retry<T>(promiseGenerator: () => Promise<T>) {
-  while (true) {
+async function retry<T>(
+  promiseGenerator: () => Promise<T>,
+  shouldContinue: () => boolean = () => true,
+): Promise<T | undefined> {
+  while (shouldContinue()) {
     try {
       return await promiseGenerator();
     } catch (e) {
+      if (!shouldContinue()) return;
       console.error(e);
       await new Promise((r) => setTimeout(r, 2000));
     }
@@ -2036,65 +2065,111 @@ async function retry<T>(promiseGenerator: () => Promise<T>) {
 
 const loadProgressStore = writable<[number, number] | null>(null);
 export const loadProgress = { subscribe: loadProgressStore.subscribe };
-let _hasSetVersion = false;
-const { subscribe, set } = writable<CddaData | null>(null);
-export const data = {
-  subscribe,
-  async setVersion(version: string, locale: string | null) {
-    if (_hasSetVersion) throw new Error("can only set version once");
-    _hasSetVersion = true;
-    let totals = [0, 0, 0];
-    let receiveds = [0, 0, 0];
-    const updateProgress = () => {
-      const total = totals.reduce((a, b) => a + b, 0);
-      const received = receiveds.reduce((a, b) => a + b, 0);
-      loadProgressStore.set([received, total]);
-    };
-    const [dataJson, localeJson, pinyinNameJson] = await Promise.all([
-      retry(() =>
-        fetchJson(version, (receivedBytes, totalBytes) => {
-          totals[0] = totalBytes;
-          receiveds[0] = receivedBytes;
-          updateProgress();
-        }),
-      ),
-      locale &&
-        retry(() =>
-          fetchLocaleJson(version, locale, (receivedBytes, totalBytes) => {
-            totals[1] = totalBytes;
-            receiveds[1] = receivedBytes;
-            updateProgress();
-          }),
-        ),
-      locale?.startsWith("zh_") &&
-        retry(() =>
-          fetchLocaleJson(
-            version,
-            locale + "_pinyin",
-            (receivedBytes, totalBytes) => {
-              totals[2] = totalBytes;
-              receiveds[2] = receivedBytes;
-              updateProgress();
-            },
-          ),
-        ),
-    ]);
-    if (locale && localeJson) {
-      if (pinyinNameJson) pinyinNameJson[""] = localeJson[""];
-      i18n.loadJSON(localeJson);
-      i18n.setLocale(locale);
-      if (pinyinNameJson) {
-        i18n.loadJSON(pinyinNameJson, "pinyin");
-      }
-    }
-    const cddaData = new CddaData(
-      dataJson.data,
-      dataJson.build_number,
-      dataJson.release,
-    );
-    set(cddaData);
-  },
+type DataFile = {
+  data: any[];
+  build_number?: string;
+  release?: any;
 };
+
+type DataStoreOptions = {
+  fetchData?: typeof fetchJson;
+  fetchLocale?: typeof fetchLocaleJson;
+};
+
+export function createDataStore({
+  fetchData = fetchJson,
+  fetchLocale = fetchLocaleJson,
+}: DataStoreOptions = {}) {
+  const { subscribe, set } = writable<CddaData | null>(null);
+  let loadController: AbortController | null = null;
+
+  return {
+    subscribe,
+    async setVersion(version: string, locale: string | null) {
+      loadController?.abort();
+      loadController = new AbortController();
+      const { signal } = loadController;
+      set(null);
+      loadProgressStore.set(null);
+
+      let totals = [0, 0, 0];
+      let receiveds = [0, 0, 0];
+      const updateProgress = () => {
+        if (signal.aborted) return;
+        const total = totals.reduce((a, b) => a + b, 0);
+        const received = receiveds.reduce((a, b) => a + b, 0);
+        loadProgressStore.set([received, total]);
+      };
+      const [dataJson, localeJson, pinyinNameJson] = await Promise.all([
+        retry(
+          () =>
+            fetchData(
+              version,
+              (receivedBytes, totalBytes) => {
+                totals[0] = totalBytes;
+                receiveds[0] = receivedBytes;
+                updateProgress();
+              },
+              signal,
+            ),
+          () => !signal.aborted,
+        ),
+        locale &&
+          retry(
+            () =>
+              fetchLocale(
+                version,
+                locale,
+                (receivedBytes, totalBytes) => {
+                  totals[1] = totalBytes;
+                  receiveds[1] = receivedBytes;
+                  updateProgress();
+                },
+                signal,
+              ),
+            () => !signal.aborted,
+          ),
+        locale?.startsWith("zh_") &&
+          retry(
+            () =>
+              fetchLocale(
+                version,
+                locale + "_pinyin",
+                (receivedBytes, totalBytes) => {
+                  totals[2] = totalBytes;
+                  receiveds[2] = receivedBytes;
+                  updateProgress();
+                },
+                signal,
+              ),
+            () => !signal.aborted,
+          ),
+      ]);
+
+      if (signal.aborted) return;
+
+      const nextI18n = makeI18n();
+      if (locale && localeJson) {
+        if (pinyinNameJson) pinyinNameJson[""] = localeJson[""];
+        nextI18n.loadJSON(localeJson);
+        nextI18n.setLocale(locale);
+        if (pinyinNameJson) {
+          nextI18n.loadJSON(pinyinNameJson, "pinyin");
+        }
+      }
+      i18n = nextI18n;
+
+      const { data: raw, build_number, release } = dataJson as DataFile;
+      const cddaData = new CddaData(raw, build_number, release);
+      set(cddaData);
+      loadProgressStore.set(null);
+      loadController = null;
+      return cddaData;
+    },
+  };
+}
+
+export const data = createDataStore();
 
 export function omsName(data: CddaData, oms: OvermapSpecial): string {
   if (oms.subtype === "mutable") return oms.id;

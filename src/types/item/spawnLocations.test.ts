@@ -429,6 +429,34 @@ describe("loot", () => {
   });
 });
 
+it("mapgen caches are scoped to a CddaData instance", () => {
+  const mapgen = {
+    type: "mapgen",
+    method: "json",
+    om_terrain: "test_terrain",
+    object: {
+      place_loot: [{ group: "test_group", x: 0, y: 0 }],
+    },
+  } as Mapgen;
+  const withItem = (item: string) =>
+    new CddaData([
+      mapgen,
+      {
+        type: "item_group",
+        id: "test_group",
+        subtype: "collection",
+        items: [item],
+      } as ItemGroupData,
+    ]);
+
+  expect([...getLootForMapgen(withItem("first"), mapgen).keys()]).toEqual([
+    "first",
+  ]);
+  expect([...getLootForMapgen(withItem("second"), mapgen).keys()]).toEqual([
+    "second",
+  ]);
+});
+
 describe("nested mapgen", () => {
   it("reads place_nested", async () => {
     const data = new CddaData([

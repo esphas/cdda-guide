@@ -60,7 +60,7 @@ type SearchTarget = {
 };
 let targets: SearchTarget[];
 function searchableName(data: CddaData, item: SupportedTypeMapped) {
-  item = data._flatten(item);
+  item = data.flatten(item);
   if (item?.type === "overmap_special" || item?.type === "city_building") {
     if (item.subtype === "mutable") return item.id;
     else
@@ -200,7 +200,7 @@ function groupByAppearance(results: SearchResult[]): OvermapSpecial[][] {
     {:else}
       <h1>{type.replace(/_/g, " ")}</h1>
       <LimitedList items={results} let:item={result} limit={50}>
-        {@const item = data._flatten(result.item)}
+        {@const item = data.flatten(result.item)}
         <ItemSymbol {item} />
         <ThingLink
           type={mapType(result.item.type)}
