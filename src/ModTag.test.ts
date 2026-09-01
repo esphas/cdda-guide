@@ -4,11 +4,11 @@
 import { cleanup, render } from "@testing-library/svelte";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { CddaData } from "../data";
-import Thing from "../Thing.svelte";
-import WithData from "../WithData.svelte";
+import { CddaData } from "./data";
+import Thing from "./Thing.svelte";
+import WithData from "./WithData.svelte";
 import ModTag from "./ModTag.svelte";
-import ThingLink from "./ThingLink.svelte";
+import ThingLink from "./types/ThingLink.svelte";
 
 afterEach(cleanup);
 

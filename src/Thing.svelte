@@ -37,7 +37,7 @@ import JsonView from "./JsonView.svelte";
 import OvermapSpecial from "./types/OvermapSpecial.svelte";
 import ItemAction from "./types/ItemAction.svelte";
 import Technique from "./types/Technique.svelte";
-import ModTag from "./types/ModTag.svelte";
+import ModTag from "./ModTag.svelte";
 
 import Spoiler from "./Spoiler.svelte";
 import { isSpoilerItem } from "./spoilers";

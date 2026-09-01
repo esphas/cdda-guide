@@ -71,13 +71,16 @@ const id = (x: any) => {
   if (x.om_terrain) return JSON.stringify(x.om_terrain);
 };
 
-const all = data._raw
+const all = data
+  .all()
   .filter((x) => id(x))
   .filter((x) => schemasByType.has(x.type))
-  .map((x, i) => [x.type, id(x) ?? i, data._flatten(x)]);
+  .map((x, i) => [x.type, id(x) ?? i, data.flatten(x)]);
 
 const skipped = new Set<string>([
   JSON.stringify("ch_sheet_metal_small"), // broken "using"
+  // Invalid weighted chunks entry introduced by CDDA commit 08592f5cf3.
+  JSON.stringify(JSON.stringify(["microlab_generic_edge"])),
 ]);
 
 test.each(all)("schema matches %s %s", (type, id, obj) => {

@@ -204,11 +204,7 @@ test("proportional encumbrance scales inherited armor portion encumbrance", () =
     [{ encumbrance: 8 }, { encumbrance: [2, 6] }],
   );
   expect(
-    (
-      data._flatten(
-        data._abstractsByType.get("item")!.get("base_boots"),
-      ) as ArmorSlot
-    ).armor,
+    (data.abstractById("item", "base_boots") as ArmorSlot).armor,
   ).toMatchObject([{ encumbrance: 4 }, { encumbrance: [1, 3] }]);
 });
 

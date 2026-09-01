@@ -16,7 +16,6 @@ import {
   type SupportedTypeMapped,
   type Vehicle,
   type Item,
-  type Monster,
   type UseFunction,
   type Bionic,
   type QualityRequirement,
@@ -29,6 +28,7 @@ import {
   type ArmorSlot,
   type PartMaterial,
   type BreathabilityRating,
+  type Monster,
   isItemSubtype,
 } from "./types";
 import type { Loot } from "./types/item/spawnLocations";
@@ -270,6 +270,20 @@ export interface ModInfo {
   conflicts?: string[];
 }
 
+type RawModData = Record<string, { info: any; data: any[] }>;
+
+// Monster blacklists and whitelists are anonymous load-time directives, not
+// named game objects. They have no id and intentionally aren't in
+// SupportedTypes, whose members are schema-checked as addressable objects.
+type MonsterListDirective = {
+  monsters?: string[];
+  species?: string[];
+  categories?: string[];
+} & (
+  | { type: "MONSTER_BLACKLIST" }
+  | { type: "MONSTER_WHITELIST"; mode?: "EXCLUSIVE" }
+);
+
 export const hiddenAttributes = [
   "__mod",
   "__modName",
@@ -278,201 +292,157 @@ export const hiddenAttributes = [
   "__prevSelf",
 ];
 
+/**
+ * An immutable view of one loaded game-data snapshot.
+ *
+ * Methods may populate internal caches, but the data visible through this
+ * class does not change after construction. To load another version or data
+ * configuration, construct and publish another CddaData instance.
+ */
 export class CddaData {
-  _raw: any[];
-  _mods: Record<string, ModInfo>;
-  _rawMods: Record<string, { info: any; data: any[] }>;
-  _modsFetched: boolean;
+  readonly #raw: any[];
+  readonly #mods: Record<string, ModInfo>;
+  readonly #rawMods: RawModData;
+  readonly #hasFetchedMods: boolean;
+  #byType: Map<string, any[]> = new Map();
+  #byTypeById: Map<string, Map<string, any>> = new Map();
+  #abstractsByType: Map<string, Map<string, any>> = new Map();
+  #toolReplacements: Map<string, string[]> | null = null;
+  #craftingPseudoItems: Map<string, string> = new Map();
+  #migrations: Map<string, string> = new Map();
+  #flattenCache: Map<any, any> = new Map();
+  #nestedMapgensById: Map<string, Mapgen[]> = new Map();
 
-  _enabledMods: string[] = [];
-  _revision = 0;
+  #monsterBlacklist: MonsterListDirective[] = [];
+  #monsterWhitelist: MonsterListDirective[] = [];
+  #monsterWhitelistExclusive: MonsterListDirective[] = [];
 
-  _rawAll: any[] = [];
-  _byType: Map<string, any[]> = new Map();
-  _byTypeById: Map<string, Map<string, any>> = new Map();
-  _abstractsByType: Map<string, Map<string, any>> = new Map();
-  _toolReplacements: Map<string, string[]> | null = null;
-  _craftingPseudoItems: Map<string, string> = new Map();
-  _migrations: Map<string, string> = new Map();
-  _flattenCache: Map<any, any> = new Map();
-  _nestedMapgensById: Map<string, Mapgen[]> = new Map();
-
-  _monsterBlacklist: any[] = [];
-  _monsterWhitelist: any[] = [];
-  _monsterWhitelistExclusive: any[] = [];
-
-  release: any;
-  build_number: string | undefined;
+  readonly release: any;
+  readonly build_number: string | undefined;
 
   constructor(
     raw: any[],
     build_number?: string,
     release?: any,
-    mods?: Record<string, ModInfo>,
-    rawMods?: Record<string, { info: any; data: any[] }>,
-    enabledMods?: string[],
+    mods: Record<string, ModInfo> = {},
+    rawMods?: RawModData,
+    enabledMods: string[] = [],
   ) {
     this.release = release;
     this.build_number = build_number;
+    this.#mods = mods;
+    this.#rawMods = rawMods ?? {};
+    this.#hasFetchedMods = rawMods != null;
     // For some reason O—G has the string "mapgen" as one of its objects.
-    this._raw = raw.filter((x) => typeof x === "object");
-    this._mods = mods ?? {};
-    this._rawMods = rawMods ?? {};
-    this._modsFetched = rawMods != null;
-    this._enabledMods = enabledMods ?? [];
-
-    this.initData();
-  }
-
-  initData() {
-    this._revision += 1;
-    this._rawAll = [];
-    this._byType.clear();
-    this._byTypeById.clear();
-    this._abstractsByType.clear();
-    this._toolReplacements?.clear();
-    this._craftingPseudoItems.clear();
-    this._migrations.clear();
-    this._flattenCache.clear();
-    this._nestedMapgensById.clear();
-    this._cachedDeathDrops.clear();
-    this._cachedUncraftRecipes?.clear();
-    this._cachedMapgenSpawnItems.clear();
-    this._convertedTopLevelItemGroups.clear();
-    this._flattenItemGroupCache = new WeakMap();
-    this._flatRequirementCache = new WeakMap();
-    this._flatRequirementCacheExpandSubs = new WeakMap();
-    this._flatRequirementCacheOnlyRecoverable = new WeakMap();
-    this._normalizeRequirementsCache.clear();
-    this._itemComponentCache = null;
-    this._constructionComponentCache = null;
-    this.#compatibleItemsIdIndex.clear();
-    this.#compatibleItemsFlagIndex.clear();
-    this.#grownFromIndex.clear();
-    this.#brewedFromIndex.clear();
-    this.#transformedFromIndex.clear();
-    this.#bashFromFurnitureIndex.clear();
-    this.#bashFromTerrainIndex.clear();
-    this.#bashFromVehiclePartIndex.clear();
-    this.#deconstructFromFurnitureIndex.clear();
-    this.#deconstructFromTerrainIndex.clear();
-
-    for (const obj of this._raw) {
-      obj.__mod = "dda";
-      obj.__modName = translate("Dark Days Ahead", false, 1);
-      this.loadObject(obj);
-    }
-
-    for (const mod of this._enabledMods) {
-      if (!(mod in this._rawMods)) continue;
-      for (const obj of this._rawMods[mod].data) {
-        obj.__mod = mod;
-        obj.__modName = translate(this._rawMods[mod].info.name, false, 1);
-        this.loadObject(obj);
-      }
-    }
-
-    this._byTypeById
+    const baseObjects = raw
+      .filter((x) => typeof x === "object")
+      .map((obj) => ({
+        ...obj,
+        __mod: "dda",
+        __modName: translate("Dark Days Ahead", false, 1),
+      }));
+    const modObjects = enabledMods.flatMap((mod) => {
+      const modData = this.#rawMods[mod];
+      if (!modData) return [];
+      return modData.data.map((obj) => ({
+        ...obj,
+        __mod: mod,
+        __modName: translate(modData.info.name, false, 1),
+      }));
+    });
+    this.#raw = [...baseObjects, ...modObjects];
+    for (const obj of this.#raw) this.#loadObject(obj);
+    this.#byTypeById
       .get("item_group")
       ?.set("EMPTY_GROUP", { id: "EMPTY_GROUP", entries: [] });
   }
 
-  loadObject(obj: any) {
-    this._rawAll.push(obj);
-
+  #loadObject(obj: any) {
     if (!Object.hasOwnProperty.call(obj, "type")) return;
     if (obj.type === "MIGRATION") {
       for (const id of typeof obj.id === "string" ? [obj.id] : obj.id) {
-        this._migrations.set(id, obj.replace);
+        this.#migrations.set(id, obj.replace);
       }
       return;
     }
     const mappedType = mapType(obj.type);
-    if (!this._byType.has(mappedType)) this._byType.set(mappedType, []);
+    if (!this.#byType.has(mappedType)) this.#byType.set(mappedType, []);
 
     obj.__self = obj;
     obj.__prevSelf = null;
-
     if (obj["copy-from"] && obj["copy-from"] === obj.id) {
-      const oldIndex = this._byType
+      const oldIndex = this.#byType
         .get(mappedType)!
         .findIndex((x) => x.id === obj.id);
       if (oldIndex !== -1) {
-        // update _byType
-        const oldObj = this._byType
+        const oldObj = this.#byType
           .get(mappedType)!
           .splice(oldIndex, 1, obj)[0];
         obj.__prevSelf = oldObj;
+      } else {
+        this.#byType.get(mappedType)!.push(obj);
       }
     } else {
-      this._byType.get(mappedType)!.push(obj);
+      this.#byType.get(mappedType)!.push(obj);
     }
 
     if (Object.hasOwnProperty.call(obj, "id")) {
-      if (!this._byTypeById.has(mappedType))
-        this._byTypeById.set(mappedType, new Map());
+      if (!this.#byTypeById.has(mappedType))
+        this.#byTypeById.set(mappedType, new Map());
       if (typeof obj.id === "string")
-        this._byTypeById.get(mappedType)!.set(obj.id, obj);
+        this.#byTypeById.get(mappedType)!.set(obj.id, obj);
       else if (Array.isArray(obj.id))
-        for (const id of obj.id) this._byTypeById.get(mappedType)!.set(id, obj);
+        for (const id of obj.id) this.#byTypeById.get(mappedType)!.set(id, obj);
 
       // TODO: proper alias handling. We want to e.g. be able to collapse them in loot tables.
       if (Array.isArray(obj.alias))
         for (const id of obj.alias)
-          this._byTypeById.get(mappedType)!.set(id, obj);
+          this.#byTypeById.get(mappedType)!.set(id, obj);
       else if (typeof obj.alias === "string")
-        this._byTypeById.get(mappedType)!.set(obj.alias, obj);
+        this.#byTypeById.get(mappedType)!.set(obj.alias, obj);
     }
     // recipes are id'd by their result
     if (
       (mappedType === "recipe" || mappedType === "uncraft") &&
       Object.hasOwnProperty.call(obj, "result")
     ) {
-      if (!this._byTypeById.has(mappedType))
-        this._byTypeById.set(mappedType, new Map());
+      if (!this.#byTypeById.has(mappedType))
+        this.#byTypeById.set(mappedType, new Map());
       const id =
         obj.result +
         (obj.variant && !obj.abstract ? "_" + obj.variant : "") +
         (obj.id_suffix ? "_" + obj.id_suffix : "");
-      this._byTypeById.get(mappedType)!.set(id, obj);
+      this.#byTypeById.get(mappedType)!.set(id, obj);
     }
     if (
       mappedType === "monstergroup" &&
       Object.hasOwnProperty.call(obj, "name")
     ) {
-      if (!this._byTypeById.has(mappedType))
-        this._byTypeById.set(mappedType, new Map());
-      const id = obj.name;
-      this._byTypeById.get(mappedType)!.set(id, obj);
+      if (!this.#byTypeById.has(mappedType))
+        this.#byTypeById.set(mappedType, new Map());
+      this.#byTypeById.get(mappedType)!.set(obj.name, obj);
     }
     if (Object.hasOwnProperty.call(obj, "abstract")) {
-      if (!this._abstractsByType.has(mappedType))
-        this._abstractsByType.set(mappedType, new Map());
-      this._abstractsByType.get(mappedType)!.set(obj.abstract, obj);
+      if (!this.#abstractsByType.has(mappedType))
+        this.#abstractsByType.set(mappedType, new Map());
+      this.#abstractsByType.get(mappedType)!.set(obj.abstract, obj);
     }
-
-    if (Object.hasOwnProperty.call(obj, "crafting_pseudo_item")) {
-      this._craftingPseudoItems.set(obj.crafting_pseudo_item, obj.id);
-    }
-
+    if (Object.hasOwnProperty.call(obj, "crafting_pseudo_item"))
+      this.#craftingPseudoItems.set(obj.crafting_pseudo_item, obj.id);
     if (Object.hasOwnProperty.call(obj, "nested_mapgen_id")) {
-      if (!this._nestedMapgensById.has(obj.nested_mapgen_id))
-        this._nestedMapgensById.set(obj.nested_mapgen_id, []);
-      this._nestedMapgensById.get(obj.nested_mapgen_id)!.push(obj);
+      if (!this.#nestedMapgensById.has(obj.nested_mapgen_id))
+        this.#nestedMapgensById.set(obj.nested_mapgen_id, []);
+      this.#nestedMapgensById.get(obj.nested_mapgen_id)!.push(obj);
     }
-
     if (obj.type === "MONSTER_BLACKLIST") {
-      this._monsterBlacklist.push(obj);
+      this.#monsterBlacklist.push(obj);
     } else if (obj.type === "MONSTER_WHITELIST") {
-      if (obj.mode === "EXCLUSIVE") {
-        this._monsterWhitelistExclusive.push(obj);
-      } else {
-        this._monsterWhitelist.push(obj);
-      }
+      if (obj.mode === "EXCLUSIVE") this.#monsterWhitelistExclusive.push(obj);
+      else this.#monsterWhitelist.push(obj);
     }
   }
 
-  isMonsterInList(mon: Monster, list: any) {
+  #isMonsterInList(mon: Monster, list: MonsterListDirective) {
     const species =
       typeof mon.species === "string" ? [mon.species] : (mon.species ?? []);
     return (
@@ -485,39 +455,33 @@ export class CddaData {
 
   isMonsterBlacklisted(mon: Monster): boolean {
     return (
-      this._monsterBlacklist.some((obj) => this.isMonsterInList(mon, obj)) ||
-      (this._monsterWhitelistExclusive.length > 0 &&
-        this._monsterWhitelistExclusive.every(
-          (obj) => !this.isMonsterInList(mon, obj),
+      this.#monsterBlacklist.some((obj) => this.#isMonsterInList(mon, obj)) ||
+      (this.#monsterWhitelistExclusive.length > 0 &&
+        this.#monsterWhitelistExclusive.every(
+          (obj) => !this.#isMonsterInList(mon, obj),
         ))
     );
   }
 
   isMonsterWhitelisted(mon: Monster): boolean {
     return (
-      this._monsterWhitelist.some((obj) => this.isMonsterInList(mon, obj)) ||
-      this._monsterWhitelistExclusive.some((obj) =>
-        this.isMonsterInList(mon, obj),
+      this.#monsterWhitelist.some((obj) => this.#isMonsterInList(mon, obj)) ||
+      this.#monsterWhitelistExclusive.some((obj) =>
+        this.#isMonsterInList(mon, obj),
       )
     );
   }
 
-  get modsFetched() {
-    return this._modsFetched;
+  get hasFetchedMods() {
+    return this.#hasFetchedMods;
   }
 
   getRawModData(id: string): any[] {
-    return this._rawMods[id]?.data ?? [];
-  }
-
-  setRawModData(rawMods: Record<string, { info: any; data: any[] }>) {
-    this._rawMods = rawMods;
-    this._modsFetched = true;
-    this.initData();
+    return this.#rawMods[id]?.data ?? [];
   }
 
   getModInfo(mod: string): ModInfo | undefined {
-    return this._rawMods[mod]?.info ?? this._mods[mod];
+    return this.#rawMods[mod]?.info ?? this.#mods[mod];
   }
 
   get availableMods(): {
@@ -526,7 +490,7 @@ export class CddaData {
     description?: string;
     category?: string;
   }[] {
-    return Object.entries(this._mods)
+    return Object.entries(this.#mods)
       .filter(([id]) => id !== "dda")
       .map(([id, info]) => ({
         id,
@@ -539,29 +503,17 @@ export class CddaData {
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
-  get revision() {
-    return this._revision;
-  }
-
-  setEnabledMods(enabledMods: string[]) {
-    if (JSON.stringify(this._enabledMods) === JSON.stringify(enabledMods)) {
-      return;
-    }
-    this._enabledMods = enabledMods;
-    this.initData();
-  }
-
   byIdMaybe<TypeName extends keyof SupportedTypesWithMapped>(
     type: TypeName,
     id: string,
   ): (SupportedTypesWithMapped[TypeName] & { __filename: string }) | undefined {
     if (typeof id !== "string") throw new Error("Requested non-string id");
-    const byId = this._byTypeById.get(type);
-    if (type === "item" && !byId?.has(id) && this._migrations.has(id))
-      return this.byIdMaybe(type, this._migrations.get(id)!);
+    const byId = this.#byTypeById.get(type);
+    if (type === "item" && !byId?.has(id) && this.#migrations.has(id))
+      return this.byIdMaybe(type, this.#migrations.get(id)!);
     const obj = byId?.get(id);
     if (!obj) return;
-    const flattened = this._flatten(obj);
+    const flattened = this.flatten(obj);
     if (
       type === "monster" &&
       this.isMonsterBlacklisted(flattened) &&
@@ -585,7 +537,7 @@ export class CddaData {
   byType<TypeName extends keyof SupportedTypesWithMapped>(
     type: TypeName,
   ): SupportedTypesWithMapped[TypeName][] {
-    let list = this._byType.get(type)?.map((x) => this._flatten(x)) ?? [];
+    let list = this.#byType.get(type)?.map((x) => this.flatten(x)) ?? [];
     if (type === "monster") {
       list = list.filter(
         (mon) =>
@@ -600,54 +552,50 @@ export class CddaData {
     id: string,
   ): object | undefined /* abstracts don't have ids, for instance */ {
     if (typeof id !== "string") throw new Error("Requested non-string id");
-    const obj = this._abstractsByType.get(type)?.get(id);
-    if (obj) return this._flatten(obj);
+    const obj = this.#abstractsByType.get(type)?.get(id);
+    if (obj) return this.flatten(obj);
   }
 
   replacementTools(type: string): string[] {
-    if (!this._toolReplacements) {
-      this._toolReplacements = new Map();
+    if (!this.#toolReplacements) {
+      this.#toolReplacements = new Map();
       for (const obj of this.byType("item")) {
         if (
           isItemSubtype("TOOL", obj) &&
           Object.hasOwnProperty.call(obj, "sub") &&
           obj.sub
         ) {
-          if (!this._toolReplacements.has(obj.sub))
-            this._toolReplacements.set(obj.sub, []);
-          this._toolReplacements.get(obj.sub)!.push(obj.id);
+          if (!this.#toolReplacements.has(obj.sub))
+            this.#toolReplacements.set(obj.sub, []);
+          this.#toolReplacements.get(obj.sub)!.push(obj.id);
         }
       }
     }
-    return this._toolReplacements.get(type) ?? [];
+    return this.#toolReplacements.get(type) ?? [];
   }
 
   craftingPseudoItem(id: string): string | undefined {
-    return this._craftingPseudoItems.get(id);
+    return this.#craftingPseudoItems.get(id);
   }
 
   nestedMapgensById(id: string): Mapgen[] | undefined {
-    return this._nestedMapgensById.get(id);
+    return this.#nestedMapgensById.get(id);
   }
 
-  all(): SupportedTypeMapped[] {
-    return this._rawAll;
+  all(): readonly SupportedTypeMapped[] {
+    return this.#raw;
   }
 
-  _flatten<T = any>(_obj: T): T {
+  flatten<T = any>(_obj: T): T {
     const obj: any = _obj;
-    if (this._flattenCache.has(obj)) return this._flattenCache.get(obj);
-
-    let parent: any = null;
-    if (obj.__prevSelf != null) {
-      parent = obj.__prevSelf;
-    } else {
+    if (this.#flattenCache.has(obj)) return this.#flattenCache.get(obj);
+    let parent: any = obj.__prevSelf;
+    if (!parent) {
       parent =
         "copy-from" in obj
-          ? (this._byTypeById.get(mapType(obj.type))?.get(obj["copy-from"]) ??
-            this._abstractsByType.get(mapType(obj.type))?.get(obj["copy-from"]))
+          ? (this.#byTypeById.get(mapType(obj.type))?.get(obj["copy-from"]) ??
+            this.#abstractsByType.get(mapType(obj.type))?.get(obj["copy-from"]))
           : null;
-
       if ("copy-from" in obj && !parent)
         console.error(
           `Missing parent in ${
@@ -658,14 +606,14 @@ export class CddaData {
     if (parent === obj) {
       // Working around bad data upstream, see: https://github.com/CleverRaven/Cataclysm-DDA/pull/53930
       console.warn("Object copied from itself:", obj);
-      this._flattenCache.set(obj, obj);
+      this.#flattenCache.set(obj, obj);
       return obj;
     }
     if (!parent) {
-      this._flattenCache.set(obj, obj);
+      this.#flattenCache.set(obj, obj);
       return obj;
     }
-    const { abstract, ...parentProps } = this._flatten(parent);
+    const { abstract, ...parentProps } = this.flatten(parent);
     const ret = { ...parentProps, ...obj };
     if (parentProps.vitamins && obj.vitamins) {
       ret.vitamins = [
@@ -954,14 +902,14 @@ export class CddaData {
         }
       }
     }
-    this._flattenCache.set(obj, ret);
+    this.#flattenCache.set(obj, ret);
     return ret;
   }
 
-  _cachedDeathDrops: Map<string, Loot> = new Map();
+  #cachedDeathDrops: Map<string, Loot> = new Map();
   flatDeathDrops(mon_id: string): Loot {
-    if (this._cachedDeathDrops.has(mon_id))
-      return this._cachedDeathDrops.get(mon_id)!;
+    if (this.#cachedDeathDrops.has(mon_id))
+      return this.#cachedDeathDrops.get(mon_id)!;
     const mon = this.byId("monster", mon_id);
     const ret = mon.death_drops
       ? this.flattenItemGroupLoot(
@@ -971,28 +919,28 @@ export class CddaData {
           },
         )
       : new Map();
-    this._cachedDeathDrops.set(mon_id, ret);
+    this.#cachedDeathDrops.set(mon_id, ret);
     return ret;
   }
 
-  _cachedUncraftRecipes: Map<string, Recipe> | null = null;
+  #cachedUncraftRecipes: Map<string, Recipe> | null = null;
   uncraftRecipe(item_id: string): Recipe | undefined {
-    if (!this._cachedUncraftRecipes) {
-      this._cachedUncraftRecipes = new Map();
+    if (!this.#cachedUncraftRecipes) {
+      this.#cachedUncraftRecipes = new Map();
       for (const recipe of this.byType("recipe"))
         if (recipe.result && recipe.reversible)
-          this._cachedUncraftRecipes.set(recipe.result, recipe);
+          this.#cachedUncraftRecipes.set(recipe.result, recipe);
       for (const recipe of this.byType("uncraft"))
         if (recipe.result)
-          this._cachedUncraftRecipes.set(recipe.result, recipe);
+          this.#cachedUncraftRecipes.set(recipe.result, recipe);
     }
-    return this._cachedUncraftRecipes.get(item_id);
+    return this.#cachedUncraftRecipes.get(item_id);
   }
 
-  _cachedMapgenSpawnItems = new Map<Mapgen, string[]>();
+  #cachedMapgenSpawnItems = new Map<Mapgen, string[]>();
   mapgenSpawnItems(mapgen: Mapgen): string[] {
-    if (this._cachedMapgenSpawnItems.has(mapgen))
-      return this._cachedMapgenSpawnItems.get(mapgen)!;
+    if (this.#cachedMapgenSpawnItems.has(mapgen))
+      return this.#cachedMapgenSpawnItems.get(mapgen)!;
     const palette = new Map<string, Set<string>>();
     const add = (c: string, item_id: MapgenValue) => {
       if (typeof item_id === "string") {
@@ -1093,13 +1041,13 @@ export class CddaData {
       if (typeof v.item === "string") ret.add(v.item);
 
     const r = [...ret];
-    this._cachedMapgenSpawnItems.set(mapgen, r);
+    this.#cachedMapgenSpawnItems.set(mapgen, r);
     return r;
   }
 
   // Top-level item groups can have the "old" subtype (which is the default if
   // no other subtype is specified).
-  _convertedTopLevelItemGroups = new Map<ItemGroup, ItemGroupData>();
+  #convertedTopLevelItemGroups = new Map<ItemGroup, ItemGroupData>();
   convertTopLevelItemGroup(group: ItemGroup): ItemGroupData {
     if (group.subtype === "distribution" || group.subtype === "collection") {
       return group;
@@ -1108,8 +1056,8 @@ export class CddaData {
       !group.subtype ||
       group.subtype === "old"
     ) {
-      if (this._convertedTopLevelItemGroups.has(group))
-        return this._convertedTopLevelItemGroups.get(group)!;
+      if (this.#convertedTopLevelItemGroups.has(group))
+        return this.#convertedTopLevelItemGroups.get(group)!;
       // Convert old-style item groups to new-style
       const normalizedEntries: ItemGroupEntry[] = [];
       for (const item of group.items ?? [])
@@ -1126,7 +1074,7 @@ export class CddaData {
         subtype: "distribution",
         entries: normalizedEntries,
       };
-      this._convertedTopLevelItemGroups.set(group, ret);
+      this.#convertedTopLevelItemGroups.set(group, ret);
       return ret;
     } else throw new Error("unknown item group subtype: " + group.subtype);
   }
@@ -1136,7 +1084,7 @@ export class CddaData {
   }
 
   // This is a WeakMap because flattenItemGroup is sometimes called with temporary objects
-  _flattenItemGroupCache = new WeakMap<
+  #flattenItemGroupCache = new WeakMap<
     ItemGroupData,
     { id: string; prob: number; expected: number; count: [number, number] }[]
   >();
@@ -1147,8 +1095,8 @@ export class CddaData {
   flattenItemGroup(
     group: ItemGroupData,
   ): { id: string; prob: number; expected: number; count: [number, number] }[] {
-    if (this._flattenItemGroupCache.has(group))
-      return this._flattenItemGroupCache.get(group)!;
+    if (this.#flattenItemGroupCache.has(group))
+      return this.#flattenItemGroupCache.get(group)!;
     const retMap = new Map<
       string,
       { prob: number; expected: number; count: [number, number] }
@@ -1312,12 +1260,10 @@ export class CddaData {
               count: countsByCharges(item) ? [1, 1] : nCount,
             });
         } else if ("group" in entry) {
-          const group = this.byIdMaybe("item_group", entry.group);
-          if (!group) continue;
           add(
-            ...this.flattenTopLevelItemGroup(group).map((p) =>
-              prod(p, nProb, nCount),
-            ),
+            ...this.flattenTopLevelItemGroup(
+              this.byId("item_group", entry.group),
+            ).map((p) => prod(p, nProb, nCount)),
           );
         } else if ("collection" in entry) {
           add(
@@ -1375,12 +1321,10 @@ export class CddaData {
         if ("item" in entry) {
           add({ id: entry.item, prob: nProb, count: nCount });
         } else if ("group" in entry) {
-          const group = this.byIdMaybe("item_group", entry.group);
-          if (!group) continue;
           add(
-            ...this.flattenTopLevelItemGroup(group).map((p) =>
-              prod(p, nProb, nCount),
-            ),
+            ...this.flattenTopLevelItemGroup(
+              this.byId("item_group", entry.group),
+            ).map((p) => prod(p, nProb, nCount)),
           );
         } else if ("collection" in entry) {
           add(
@@ -1403,7 +1347,7 @@ export class CddaData {
     }
 
     const r = [...retMap.entries()].map(([id, v]) => ({ id, ...v }));
-    this._flattenItemGroupCache.set(group, r);
+    this.#flattenItemGroupCache.set(group, r);
     return r;
   }
 
@@ -1416,16 +1360,16 @@ export class CddaData {
     );
   }
 
-  _flatRequirementCache = new WeakMap<any, { id: string; count: number }[][]>();
-  _flatRequirementCacheExpandSubs = new WeakMap<
+  #flatRequirementCache = new WeakMap<any, { id: string; count: number }[][]>();
+  #flatRequirementCacheExpandSubs = new WeakMap<
     any,
     { id: string; count: number }[][]
   >();
-  _flatRequirementCacheOnlyRecoverable = new WeakMap<
+  #flatRequirementCacheOnlyRecoverable = new WeakMap<
     any,
     { id: string; count: number }[][]
   >();
-  _flatRequirementCacheForOpts(opts?: {
+  #flatRequirementCacheForOpts(opts?: {
     expandSubstitutes?: boolean;
     onlyRecoverable?: boolean;
   }): WeakMap<any, { id: string; count: number }[][]> {
@@ -1433,16 +1377,16 @@ export class CddaData {
       throw new Error(
         "didn't expect to see expandSubstitutes && onlyRecoverable",
       );
-    if (opts?.expandSubstitutes) return this._flatRequirementCacheExpandSubs;
-    if (opts?.onlyRecoverable) return this._flatRequirementCacheOnlyRecoverable;
-    return this._flatRequirementCache;
+    if (opts?.expandSubstitutes) return this.#flatRequirementCacheExpandSubs;
+    if (opts?.onlyRecoverable) return this.#flatRequirementCacheOnlyRecoverable;
+    return this.#flatRequirementCache;
   }
   flattenRequirement<T>(
     required: (T | T[])[],
     get: (x: Requirement) => (T | T[])[] | undefined,
     opts?: { expandSubstitutes?: boolean; onlyRecoverable?: boolean },
   ): { id: string; count: number }[][] {
-    const cache = this._flatRequirementCacheForOpts(opts);
+    const cache = this.#flatRequirementCacheForOpts(opts);
     if (cache.has(required)) return cache.get(required)!;
     const {
       expandSubstitutes: doExpandSubstitutes = false,
@@ -1479,7 +1423,7 @@ export class CddaData {
     return ret;
   }
 
-  _normalizeRequirementsCache = new Map<
+  #normalizeRequirementsCache = new Map<
     RequirementData & { using?: Recipe["using"] },
     ReturnType<typeof this.normalizeRequirementsForDisassembly>
   >();
@@ -1490,8 +1434,8 @@ export class CddaData {
     qualities: QualityRequirement[][];
     components: [string, number][][];
   } {
-    if (this._normalizeRequirementsCache.has(requirement))
-      return this._normalizeRequirementsCache.get(requirement)!;
+    if (this.#normalizeRequirementsCache.has(requirement))
+      return this.#normalizeRequirementsCache.get(requirement)!;
     const { tools, qualities, components } = this.normalizeRequirements(
       requirement,
       { onlyRecoverable: true },
@@ -1571,7 +1515,7 @@ export class CddaData {
       components: filteredComponents,
     };
 
-    this._normalizeRequirementsCache.set(requirement, ret);
+    this.#normalizeRequirementsCache.set(requirement, ret);
 
     return ret;
   }
@@ -1631,12 +1575,12 @@ export class CddaData {
     return this.normalizeRequirementUsing(requirements, opts);
   }
 
-  _itemComponentCache: {
+  #itemComponentCache: {
     byTool: Map<string, Set<string>>;
     byComponent: Map<string, Set<string>>;
   } | null = null;
   getItemComponents() {
-    if (this._itemComponentCache) return this._itemComponentCache;
+    if (this.#itemComponentCache) return this.#itemComponentCache;
     const itemsByTool = new Map<string, Set<string>>();
     const itemsByComponent = new Map<string, Set<string>>();
 
@@ -1667,20 +1611,20 @@ export class CddaData {
           itemsByComponent.get(component.id)!.add(recipe.result);
         }
     });
-    this._itemComponentCache = {
+    this.#itemComponentCache = {
       byTool: itemsByTool,
       byComponent: itemsByComponent,
     };
-    return this._itemComponentCache;
+    return this.#itemComponentCache;
   }
 
-  _constructionComponentCache: {
+  #constructionComponentCache: {
     byTool: Map<string, Set<string>>;
     byComponent: Map<string, Set<string>>;
   } | null = null;
   getConstructionComponents() {
-    if (this._constructionComponentCache)
-      return this._constructionComponentCache;
+    if (this.#constructionComponentCache)
+      return this.#constructionComponentCache;
     const constructionsByComponent = new Map<string, Set<string>>();
     const constructionsByTool = new Map<string, Set<string>>();
     for (const c of this.byType("construction")) {
@@ -1698,11 +1642,11 @@ export class CddaData {
           constructionsByTool.get(tool)!.add(c.id);
         }
     }
-    this._constructionComponentCache = {
+    this.#constructionComponentCache = {
       byTool: constructionsByTool,
       byComponent: constructionsByComponent,
     };
-    return this._constructionComponentCache;
+    return this.#constructionComponentCache;
   }
 
   normalizeItemGroup(
@@ -1895,11 +1839,6 @@ class ReverseIndex<T extends keyof SupportedTypesWithMapped> {
   ) {}
 
   #_index: Map<string, SupportedTypesWithMapped[T][]> | null = null;
-
-  clear() {
-    this.#_index = null;
-  }
-
   get #index() {
     if (!this.#_index) {
       this.#_index = new Map();
@@ -2087,10 +2026,10 @@ export const getVehiclePartIdAndVariant = (
   return [compositePartId, ""];
 };
 
-const _itemGroupFromVehicleCache = new Map<Vehicle, ItemGroupData>();
+const itemGroupFromVehicleCache = new Map<Vehicle, ItemGroupData>();
 export function itemGroupFromVehicle(vehicle: Vehicle): ItemGroupData {
-  if (_itemGroupFromVehicleCache.has(vehicle))
-    return _itemGroupFromVehicleCache.get(vehicle)!;
+  if (itemGroupFromVehicleCache.has(vehicle))
+    return itemGroupFromVehicleCache.get(vehicle)!;
   const ret: ItemGroupData = {
     subtype: "collection",
     entries: (vehicle.items ?? []).map((it) => {
@@ -2116,7 +2055,7 @@ export function itemGroupFromVehicle(vehicle: Vehicle): ItemGroupData {
     }),
   };
 
-  _itemGroupFromVehicleCache.set(vehicle, ret);
+  itemGroupFromVehicleCache.set(vehicle, ret);
   return ret;
 }
 
@@ -2157,8 +2096,7 @@ export function breathabilityFromRating(br: BreathabilityRating): number {
 
 export function getAllObjectSources(obj: any): any[] {
   if (!obj.__self) return [];
-  const sources: any[] = [];
-  sources.push(obj.__self);
+  const sources = [obj.__self];
   while (obj.__prevSelf) {
     sources.push(obj.__prevSelf);
     obj = obj.__prevSelf;
@@ -2169,14 +2107,18 @@ export function getAllObjectSources(obj: any): any[] {
 const fetchJsonWithProgress = (
   url: string,
   progress: (receivedBytes: number, totalBytes: number) => void,
+  signal: AbortSignal,
 ): Promise<any> => {
   // GoogleBot has a 15MB limit on the size of the response, so we need to
   // serve it double-gzipped JSON.
   if (/latest/.test(url) && /googlebot/i.test(navigator.userAgent))
-    return fetchGzippedJsonForGoogleBot(url);
+    return fetchGzippedJsonForGoogleBot(url, signal);
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.onload = (e) => {
+    const cleanup = () => signal.removeEventListener("abort", abort);
+    const abort = () => xhr.abort();
+    xhr.onload = () => {
+      cleanup();
       if (xhr.response) resolve(xhr.response);
       else reject(`Unknown error fetching JSON from ${url}`);
     };
@@ -2184,20 +2126,30 @@ const fetchJsonWithProgress = (
       if (e.lengthComputable) progress(e.loaded, e.total);
     };
     xhr.onerror = () => {
+      cleanup();
       reject(`Error ${xhr.status} (${xhr.statusText}) fetching ${url}`);
     };
     xhr.onabort = () => {
-      reject(`Aborted while fetching ${url}`);
+      cleanup();
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
     };
+    if (signal.aborted) {
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    signal.addEventListener("abort", abort, { once: true });
     xhr.open("GET", url);
     xhr.responseType = "json";
     xhr.send();
   });
 };
 
-async function fetchGzippedJsonForGoogleBot(url: string): Promise<any> {
+async function fetchGzippedJsonForGoogleBot(
+  url: string,
+  signal: AbortSignal,
+): Promise<any> {
   const gzUrl = url.replace(/latest/, "latest.gz");
-  const res = await fetch(gzUrl, { mode: "cors" });
+  const res = await fetch(gzUrl, { mode: "cors", signal });
   if (!res.ok)
     throw new Error(`Error ${res.status} (${res.statusText}) fetching ${url}`);
   if (!res.body)
@@ -2251,39 +2203,49 @@ const fetchJsonWithIncorrectProgress = async (
 const fetchJson = async (
   version: string,
   progress: (receivedBytes: number, totalBytes: number) => void,
+  signal: AbortSignal,
 ) => {
   return fetchJsonWithProgress(
     `https://raw.githubusercontent.com/nornagon/cdda-data/main/data/${version}/all.json`,
     progress,
+    signal,
   );
 };
 
 const fetchModsJson = async (
   version: string,
   progress: (receivedBytes: number, totalBytes: number) => void,
-) => {
+  signal: AbortSignal,
+): Promise<RawModData> => {
   return fetchJsonWithProgress(
     `https://raw.githubusercontent.com/nornagon/cdda-data/main/data/${version}/all_mods.json`,
     progress,
-  ) as Promise<Record<string, { info: any; data: any[] }>>;
+    signal,
+  );
 };
 
 const fetchLocaleJson = async (
   version: string,
   locale: string,
   progress: (receivedBytes: number, totalBytes: number) => void,
+  signal: AbortSignal,
 ) => {
   return fetchJsonWithProgress(
     `https://raw.githubusercontent.com/nornagon/cdda-data/main/data/${version}/lang/${locale}.json`,
     progress,
+    signal,
   );
 };
 
-async function retry<T>(promiseGenerator: () => Promise<T>) {
-  while (true) {
+async function retry<T>(
+  promiseGenerator: () => Promise<T>,
+  shouldContinue: () => boolean = () => true,
+): Promise<T | undefined> {
+  while (shouldContinue()) {
     try {
       return await promiseGenerator();
     } catch (e) {
+      if (!shouldContinue()) return;
       console.error(e);
       await new Promise((r) => setTimeout(r, 2000));
     }
@@ -2292,111 +2254,195 @@ async function retry<T>(promiseGenerator: () => Promise<T>) {
 
 const loadProgressStore = writable<[number, number] | null>(null);
 export const loadProgress = { subscribe: loadProgressStore.subscribe };
-let _hasSetVersion = false;
-let _currentData: CddaData | null = null;
-let _currentVersion: string | null = null;
-let _fetchingMods: Promise<void> | null = null;
-const { subscribe, set } = writable<CddaData | null>(null);
-export const data = {
-  subscribe,
-  async fetchMods() {
-    if (_currentData?.modsFetched || !_currentData || !_currentVersion) return;
-    if (_fetchingMods) return _fetchingMods;
+type DataFile = {
+  data: any[];
+  build_number?: string;
+  release?: any;
+  mods?: Record<string, ModInfo>;
+};
 
-    _fetchingMods = retry(() =>
-      fetchModsJson(_currentVersion!, (receivedBytes, totalBytes) => {
-        loadProgressStore.set([receivedBytes, totalBytes]);
-      }),
-    )
-      .then((modsJson) => {
-        _currentData!.setRawModData(modsJson);
-        set(_currentData);
-      })
-      .finally(() => {
-        _fetchingMods = null;
-        loadProgressStore.set(null);
-      });
-    return _fetchingMods;
-  },
-  async setVersion(
-    version: string,
-    locale: string | null,
-    enabledMods: string[] = [],
-    fetchModData = enabledMods.length > 0,
-  ) {
-    if (_hasSetVersion) throw new Error("can only set version once");
-    _hasSetVersion = true;
-    let totals = [0, 0, 0, 0];
-    let receiveds = [0, 0, 0, 0];
-    const updateProgress = () => {
-      const total = totals.reduce((a, b) => a + b, 0);
-      const received = receiveds.reduce((a, b) => a + b, 0);
-      loadProgressStore.set([received, total]);
-    };
-    const [dataJson, localeJson, pinyinNameJson] = await Promise.all([
-      retry(() =>
-        fetchJson(version, (receivedBytes, totalBytes) => {
-          totals[0] = totalBytes;
-          receiveds[0] = receivedBytes;
-          updateProgress();
-        }),
-      ),
-      locale &&
-        retry(() =>
-          fetchLocaleJson(version, locale, (receivedBytes, totalBytes) => {
-            totals[1] = totalBytes;
-            receiveds[1] = receivedBytes;
-            updateProgress();
-          }),
-        ),
-      locale?.startsWith("zh_") &&
-        retry(() =>
-          fetchLocaleJson(
-            version,
-            locale + "_pinyin",
-            (receivedBytes, totalBytes) => {
-              totals[2] = totalBytes;
-              receiveds[2] = receivedBytes;
-              updateProgress();
-            },
-          ),
-        ),
-    ]);
-    let modsJson: Record<string, { info: any; data: any[] }> | undefined;
-    if (dataJson.mods && fetchModData) {
-      modsJson = await retry(() =>
-        fetchModsJson(version, (receivedBytes, totalBytes) => {
-          totals[3] = totalBytes;
-          receiveds[3] = receivedBytes;
-          updateProgress();
-        }),
-      );
-    }
-    if (locale && localeJson) {
-      if (pinyinNameJson) pinyinNameJson[""] = localeJson[""];
-      i18n.loadJSON(localeJson);
-      i18n.setLocale(locale);
-      if (pinyinNameJson) {
-        i18n.loadJSON(pinyinNameJson, "pinyin");
-      }
-    }
+type DataStoreOptions = {
+  fetchData?: typeof fetchJson;
+  fetchLocale?: typeof fetchLocaleJson;
+  fetchModData?: typeof fetchModsJson;
+};
+
+export function createDataStore({
+  fetchData = fetchJson,
+  fetchLocale = fetchLocaleJson,
+  fetchModData = fetchModsJson,
+}: DataStoreOptions = {}) {
+  const { subscribe, set } = writable<CddaData | null>(null);
+  let loadController: AbortController | null = null;
+  let modsController: AbortController | null = null;
+  let loaded:
+    | { version: string; file: DataFile; rawMods?: RawModData }
+    | undefined;
+  let enabledMods: string[] = [];
+
+  const publish = () => {
+    if (!loaded) return;
+    const { file, rawMods } = loaded;
     const cddaData = new CddaData(
-      dataJson.data,
-      dataJson.build_number,
-      dataJson.release,
-      dataJson.mods,
-      modsJson,
+      file.data,
+      file.build_number,
+      file.release,
+      file.mods,
+      rawMods,
       enabledMods,
     );
-    _currentData = cddaData;
-    _currentVersion = version;
-    console.log(
-      `Loaded data for version ${version} (build ${dataJson.build_number}, release ${dataJson.release})`,
-    );
-    if (typeof window !== "undefined") (window as any)._cddaData = cddaData; // for debugging
+    if (typeof window !== "undefined") (window as any)._cddaData = cddaData;
     set(cddaData);
-  },
-};
+    return cddaData;
+  };
+
+  const fetchAllMods = async () => {
+    if (!loaded?.file.mods || loaded.rawMods) return;
+    if (modsController) return;
+    modsController = new AbortController();
+    const controller = modsController;
+    const { signal } = controller;
+    const mods = await retry(
+      () =>
+        fetchModData(
+          loaded!.version,
+          (receivedBytes, totalBytes) => {
+            if (!signal.aborted)
+              loadProgressStore.set([receivedBytes, totalBytes]);
+          },
+          signal,
+        ),
+      () => !signal.aborted,
+    );
+    if (signal.aborted || !mods) return;
+    loaded = { ...loaded, rawMods: mods };
+    const result = publish();
+    loadProgressStore.set(null);
+    if (modsController === controller) modsController = null;
+    return result;
+  };
+
+  return {
+    subscribe,
+    fetchMods: fetchAllMods,
+    async setEnabledMods(nextEnabledMods: string[]) {
+      enabledMods = [...nextEnabledMods];
+      if (enabledMods.length > 0 && loaded?.file.mods && !loaded.rawMods) {
+        return fetchAllMods();
+      }
+      return publish();
+    },
+    async setVersion(
+      version: string,
+      locale: string | null,
+      nextEnabledMods: string[] = [],
+      shouldFetchMods = nextEnabledMods.length > 0,
+    ) {
+      loadController?.abort();
+      modsController?.abort();
+      modsController = null;
+      loadController = new AbortController();
+      const { signal } = loadController;
+      enabledMods = [...nextEnabledMods];
+      loaded = undefined;
+      set(null);
+      loadProgressStore.set(null);
+
+      let totals = [0, 0, 0, 0];
+      let receiveds = [0, 0, 0, 0];
+      const updateProgress = () => {
+        if (signal.aborted) return;
+        const total = totals.reduce((a, b) => a + b, 0);
+        const received = receiveds.reduce((a, b) => a + b, 0);
+        loadProgressStore.set([received, total]);
+      };
+      const [dataJson, localeJson, pinyinNameJson] = await Promise.all([
+        retry(
+          () =>
+            fetchData(
+              version,
+              (receivedBytes, totalBytes) => {
+                totals[0] = totalBytes;
+                receiveds[0] = receivedBytes;
+                updateProgress();
+              },
+              signal,
+            ),
+          () => !signal.aborted,
+        ),
+        locale &&
+          retry(
+            () =>
+              fetchLocale(
+                version,
+                locale,
+                (receivedBytes, totalBytes) => {
+                  totals[1] = totalBytes;
+                  receiveds[1] = receivedBytes;
+                  updateProgress();
+                },
+                signal,
+              ),
+            () => !signal.aborted,
+          ),
+        locale?.startsWith("zh_") &&
+          retry(
+            () =>
+              fetchLocale(
+                version,
+                locale + "_pinyin",
+                (receivedBytes, totalBytes) => {
+                  totals[2] = totalBytes;
+                  receiveds[2] = receivedBytes;
+                  updateProgress();
+                },
+                signal,
+              ),
+            () => !signal.aborted,
+          ),
+      ]);
+
+      if (signal.aborted) return;
+
+      const nextI18n = makeI18n();
+      if (locale && localeJson) {
+        if (pinyinNameJson) pinyinNameJson[""] = localeJson[""];
+        nextI18n.loadJSON(localeJson);
+        nextI18n.setLocale(locale);
+        if (pinyinNameJson) {
+          nextI18n.loadJSON(pinyinNameJson, "pinyin");
+        }
+      }
+      i18n = nextI18n;
+
+      const file = dataJson as DataFile;
+      let rawMods: RawModData | undefined;
+      if (file.mods && shouldFetchMods) {
+        rawMods = await retry(
+          () =>
+            fetchModData(
+              version,
+              (receivedBytes, totalBytes) => {
+                totals[3] = totalBytes;
+                receiveds[3] = receivedBytes;
+                updateProgress();
+              },
+              signal,
+            ),
+          () => !signal.aborted,
+        );
+      }
+      if (signal.aborted) return;
+      loaded = { version, file, rawMods };
+      const cddaData = publish();
+      loadProgressStore.set(null);
+      loadController = null;
+      return cddaData;
+    },
+  };
+}
+
+export const data = createDataStore();
 
 export function omsName(data: CddaData, oms: OvermapSpecial): string {
   if (oms.subtype === "mutable") return oms.id;

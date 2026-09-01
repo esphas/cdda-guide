@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getAllObjectSources } from "../data";
+import { getAllObjectSources } from "./data";
 
 export let item: any;
 export let attachToPageTitle = false;

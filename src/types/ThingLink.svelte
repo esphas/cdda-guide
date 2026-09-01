@@ -13,7 +13,7 @@ import type {
   SupportedTypeMapped,
   SupportedTypesWithMapped,
 } from "../types";
-import ModTag from "./ModTag.svelte";
+import ModTag from "../ModTag.svelte";
 import MutationColor from "./MutationColor.svelte";
 
 export let type: keyof SupportedTypesWithMapped;
