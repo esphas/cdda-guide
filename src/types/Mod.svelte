@@ -1,10 +1,12 @@
 <script lang="ts">
 import { setContext } from "svelte";
 import { t } from "@transifex/native";
-import { CddaData, getAllObjectSources, mapType } from "../data";
+import { CddaData, getAllObjectSources, mapType, singular } from "../data";
 import type { SupportedTypeMapped, SupportedTypesWithMapped } from "../types";
 import CatalogSection from "../CatalogSection.svelte";
+import InterpolatedTranslation from "../InterpolatedTranslation.svelte";
 import JsonView from "../JsonView.svelte";
+import { isHiddenMod } from "../mods";
 
 export let data: CddaData;
 export let enabledMods: string[];
@@ -55,8 +57,9 @@ function catalogItems(
 
 function knownConflicts(conflicts: string[] | undefined) {
   return (conflicts ?? []).flatMap((id) => {
+    if (isHiddenMod(id)) return [];
     const mod = data.availableMods.find((candidate) => candidate.id === id);
-    return mod ? [{ id, label: mod.label }] : [];
+    return mod ? [{ id, label: singular(mod.label) }] : [];
   });
 }
 
@@ -65,7 +68,7 @@ function conflictingEnabledMods(
   conflicts: string[] | undefined,
 ) {
   return enabledMods.flatMap((enabledModId) => {
-    if (enabledModId === modId) return [];
+    if (enabledModId === modId || isHiddenMod(enabledModId)) return [];
     const enabledModInfo = data.getModInfo(enabledModId);
     const conflictsInEitherDirection =
       conflicts?.includes(enabledModId) ||
@@ -74,7 +77,7 @@ function conflictingEnabledMods(
       (candidate) => candidate.id === enabledModId,
     );
     return conflictsInEitherDirection && enabledMod
-      ? [{ id: enabledModId, label: enabledMod.label }]
+      ? [{ id: enabledModId, label: singular(enabledMod.label) }]
       : [];
   });
 }
@@ -96,7 +99,7 @@ setContext("data", data);
     return acc;
   }, {})}
   {@const enabledCheckboxId = `mod-enabled-${mod.id}`}
-  <h1 title={mod.id}>{mod.label}</h1>
+  <h1 title={mod.id}>{singular(mod.label)}</h1>
   <section>
     <dl>
       <dt>
@@ -108,14 +111,19 @@ setContext("data", data);
       </dt>
       <dd>
         {#if enabledConflicts.length}
-          {t("Conflicts with")}
-          {#each enabledConflicts as conflict, i}
-            {#if i > 0}{", "}{/if}
-            <a
-              href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
-                conflict.id,
-              )}{location.search}">{conflict.label}</a>
-          {/each}
+          <InterpolatedTranslation
+            str={t("Conflicts with {mods}", { mods: "{mods}" })}
+            slot0="mods">
+            <span slot="0">
+              {#each enabledConflicts as conflict, i}
+                {#if i > 0}{", "}{/if}
+                <a
+                  href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
+                    conflict.id,
+                  )}{location.search}">{conflict.label}</a>
+              {/each}
+            </span>
+          </InterpolatedTranslation>
         {:else}
           <label class="checkbox enabled-checkbox">
             <input
@@ -160,7 +168,9 @@ setContext("data", data);
     {#if !data.hasFetchedMods}
       <p><em>{t("Loading...")}</em></p>
     {/if}
-    <p style="color: var(--cata-color-gray)">{mod.description}</p>
+    <p style="color: var(--cata-color-gray)">
+      {mod.description ? singular(mod.description) : ""}
+    </p>
   </section>
   {#if enabledMods.includes(mod.id)}
     {#each reportedTypeEntries as [type, label]}

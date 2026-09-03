@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getAllObjectSources } from "./data";
+import { getAllObjectSources, singular } from "./data";
 
 export let item: any;
 export let attachToPageTitle = false;
@@ -33,7 +33,10 @@ function modSources(item: any) {
       mods.set(source.__mod, source.__modName ?? source.__mod);
     }
   }
-  return [...mods].map(([id, name]) => ({ id, name }));
+  return [...mods].map(([id, name]) => ({
+    id,
+    name: singular(name),
+  }));
 }
 
 $: display = modSources(item);

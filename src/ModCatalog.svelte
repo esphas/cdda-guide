@@ -1,6 +1,7 @@
 <script lang="ts">
 import { t } from "@transifex/native";
-import { CddaData, i18n } from "./data";
+import { CddaData, i18n, singular } from "./data";
+import { isHiddenMod } from "./mods";
 
 export let data: CddaData;
 
@@ -19,22 +20,6 @@ const modCategoryNames = new Map<string, string>([
   ["graphical", "GRAPHICAL MODS"],
   ["accessibility", "ACCESSIBILITY MODS"],
   ["", "NO CATEGORY"],
-]);
-
-const hiddenMods = new Set([
-  // These mods don't affect the data in the Guide at all, so hide them.
-  "cbm_slots",
-  "no_npc_food",
-  "personal_portal_storms",
-  "standard_combat_test",
-  "stats_through_kills",
-  "translate_dialogue",
-
-  // MA isn't properly supported; we'd need to load all the map data and rework loot calcs to do it right.
-  "MA",
-
-  // This should probably be available, but it throws errors right now.
-  "alt_map_key",
 ]);
 
 function groupModsByCategory(mods: typeof data.availableMods) {
@@ -58,7 +43,10 @@ function modCategoryName(category: string) {
   return i18n.__(modCategoryNames.get(category) ?? category);
 }
 
-$: displayedMods = data.availableMods.filter((mod) => !hiddenMods.has(mod.id));
+$: displayedMods = data.availableMods
+  .filter((mod) => !isHiddenMod(mod.id))
+  .map((mod) => ({ ...mod, label: singular(mod.label) }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 $: displayedModGroups = groupModsByCategory(displayedMods);
 </script>
 

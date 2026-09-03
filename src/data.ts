@@ -339,7 +339,7 @@ export class CddaData {
       .map((obj) => ({
         ...obj,
         __mod: "dda",
-        __modName: translate("Dark Days Ahead", false, 1),
+        __modName: "Dark Days Ahead",
       }));
     const modObjects = enabledMods.flatMap((mod) => {
       const modData = this.#rawMods[mod];
@@ -347,7 +347,7 @@ export class CddaData {
       return modData.data.map((obj) => ({
         ...obj,
         __mod: mod,
-        __modName: translate(modData.info.name, false, 1),
+        __modName: modData.info.name,
       }));
     });
     this.#raw = [...baseObjects, ...modObjects];
@@ -494,10 +494,8 @@ export class CddaData {
       .filter(([id]) => id !== "dda")
       .map(([id, info]) => ({
         id,
-        label: translate(info.name, false, 1),
-        description: info.description
-          ? translate(info.description, false, 1)
-          : undefined,
+        label: info.name,
+        description: info.description,
         category: info.category,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));

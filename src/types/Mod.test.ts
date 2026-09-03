@@ -26,6 +26,11 @@ const data = new CddaData(
       description: "Another mod.",
       category: "total_conversion",
     },
+    cbm_slots: {
+      id: "cbm_slots",
+      name: "CBM Slots",
+      category: "rebalance",
+    },
   },
   {
     test_mod: {
@@ -35,7 +40,7 @@ const data = new CddaData(
         name: "Test Mod",
         authors: ["Test Author"],
         maintainers: ["Test Maintainer"],
-        conflicts: ["other_mod", "missing_mod"],
+        conflicts: ["other_mod", "cbm_slots", "missing_mod"],
       },
       data: [{ type: "GENERIC", id: "test_item", name: "Test item" }],
     },
@@ -125,6 +130,9 @@ describe("Mod", () => {
     );
     expect(document.querySelector("section dl")?.textContent).not.toContain(
       "missing_mod",
+    );
+    expect(document.querySelector("section dl")?.textContent).not.toContain(
+      "CBM Slots",
     );
     expect(queryByText("Other Mod", { selector: "h1" })).toBeNull();
     const rawJson = getByText("Raw JSON").closest("details");

@@ -1,6 +1,6 @@
 <script lang="ts">
 import { t } from "@transifex/native";
-import { getAllObjectSources, hiddenAttributes } from "./data";
+import { getAllObjectSources, hiddenAttributes, singular } from "./data";
 
 export let obj: any;
 export let buildNumber: string | undefined;
@@ -22,7 +22,7 @@ const urlEdit = `https://github.dev/CleverRaven/Cataclysm-DDA/blob/${
 {#each getAllObjectSources(obj) as o}
   <details>
     <summary
-      >{o.__modName}
+      >{singular(o.__modName ?? o.__mod)}
       {#if o.__filename}
         <a href={`${urlView}/${o.__filename}`} target="_blank"
           >{t("View", { _context })}</a>

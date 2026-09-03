@@ -1,6 +1,13 @@
 <script lang="ts">
 import Thing from "./Thing.svelte";
-import { CddaData, data, loadProgress, mapType, singularName } from "./data";
+import {
+  CddaData,
+  data,
+  loadProgress,
+  mapType,
+  singular,
+  singularName,
+} from "./data";
 import { tileData } from "./tile-data";
 import SearchResults from "./SearchResults.svelte";
 import Catalog from "./Catalog.svelte";
@@ -230,7 +237,7 @@ $: if (item?.type === "mod" && $data) {
   const mod = modId
     ? $data.availableMods.find((candidate) => candidate.id === modId)
     : undefined;
-  document.title = `${mod?.label ?? t("Mods")} - The Hitchhiker's Guide to the Cataclysm`;
+  document.title = `${mod ? singular(mod.label) : t("Mods")} - The Hitchhiker's Guide to the Cataclysm`;
 } else if (
   item &&
   item.id &&
@@ -745,12 +752,13 @@ Anyway?`,
           {:else if $data}
             {#key enabledMods}
               {#each enabledMods as mod, i}
+                {@const modLabel = $data.availableMods.find(
+                  (availableMod) => availableMod.id === mod,
+                )?.label}
                 {#if i > 0}{", "}{/if}<a
                   href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
                     mod,
-                  )}{location.search}"
-                  >{$data.availableMods.find((am) => am.id === mod)?.label ??
-                    mod}</a>
+                  )}{location.search}">{modLabel ? singular(modLabel) : mod}</a>
               {/each}
             {/key}
           {:else}
