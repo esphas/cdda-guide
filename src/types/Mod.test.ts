@@ -25,6 +25,7 @@ const data = new CddaData(
       name: "Other Mod",
       description: "Another mod.",
       category: "total_conversion",
+      dependencies: ["dda"],
     },
     cbm_slots: {
       id: "cbm_slots",
@@ -40,6 +41,7 @@ const data = new CddaData(
         name: "Test Mod",
         authors: ["Test Author"],
         maintainers: ["Test Maintainer"],
+        dependencies: ["dda", "other_mod", "missing_mod"],
         conflicts: ["other_mod", "cbm_slots", "missing_mod"],
       },
       data: [{ type: "GENERIC", id: "test_item", name: "Test item" }],
@@ -122,12 +124,31 @@ describe("Mod", () => {
         document.querySelectorAll("section dl dt"),
         (term) => term.textContent,
       ),
-    ).toEqual(["Enabled", "Authors", "Maintainers", "Conflicts", "Items"]);
+    ).toEqual([
+      "Enabled",
+      "Dependencies",
+      "Authors",
+      "Maintainers",
+      "Conflicts",
+      "Items",
+    ]);
+    const dependenciesValue = getByText("Dependencies")
+      .nextElementSibling as HTMLElement;
+    expect(
+      within(dependenciesValue)
+        .getByRole("link", { name: "Other Mod" })
+        .getAttribute("href"),
+    ).toBe("/mod/other_mod");
+    expect(dependenciesValue.textContent).not.toContain("Dark Days Ahead");
     expect(getByText("Test Author")).toBeTruthy();
     expect(getByText("Test Maintainer")).toBeTruthy();
-    expect(getByRole("link", { name: "Other Mod" }).getAttribute("href")).toBe(
-      "/mod/other_mod",
-    );
+    const conflictsValue = getByText("Conflicts")
+      .nextElementSibling as HTMLElement;
+    expect(
+      within(conflictsValue)
+        .getByRole("link", { name: "Other Mod" })
+        .getAttribute("href"),
+    ).toBe("/mod/other_mod");
     expect(document.querySelector("section dl")?.textContent).not.toContain(
       "missing_mod",
     );

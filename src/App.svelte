@@ -20,6 +20,7 @@ import debounce from "lodash/debounce";
 import { onDestroy } from "svelte";
 import ModCatalog from "./ModCatalog.svelte";
 import Mod from "./types/Mod.svelte";
+import { resolveModDependencies } from "./mods";
 
 let item: { type: string; id: string } | null = null;
 let search: string = "";
@@ -193,9 +194,13 @@ function setDataOptions(nextVersion: string, nextLocale: string | null) {
 function setModEnabled(mod: string, enabled: boolean) {
   let nextEnabledMods = enabledMods;
   if (enabled) {
-    if (!enabledMods.includes(mod)) {
-      nextEnabledMods = [...enabledMods, mod];
-    }
+    const dependencies = resolveModDependencies(mod, (id) =>
+      $data?.getModInfo(id),
+    );
+    const additions = [...dependencies, mod].filter(
+      (id) => !enabledMods.includes(id),
+    );
+    if (additions.length) nextEnabledMods = [...enabledMods, ...additions];
   } else {
     if (enabledMods.includes(mod)) {
       nextEnabledMods = enabledMods.filter((m) => m !== mod);
@@ -741,7 +746,7 @@ Anyway?`,
         {/if}
       </span>
     </p>
-    {#if !$data || $data.availableMods.length === 0 || enabledMods.length > 0}
+    {#if enabledMods.length > 0}
       <p class="data-options" style="display: flex; align-items: center;">
         <a href="{import.meta.env.BASE_URL}mod{location.search}">{t("Mods")}</a
         >:

@@ -4,6 +4,7 @@ import { t } from "@transifex/native";
 import { CddaData, getAllObjectSources, mapType, singular } from "../data";
 import type { SupportedTypeMapped, SupportedTypesWithMapped } from "../types";
 import CatalogSection from "../CatalogSection.svelte";
+import ColorText from "./ColorText.svelte";
 import InterpolatedTranslation from "../InterpolatedTranslation.svelte";
 import JsonView from "../JsonView.svelte";
 import { isHiddenMod } from "../mods";
@@ -63,6 +64,14 @@ function knownConflicts(conflicts: string[] | undefined) {
   });
 }
 
+function knownDependencies(dependencies: string[] | undefined) {
+  return (dependencies ?? []).flatMap((id) => {
+    if (id === "dda") return [];
+    const dependency = data.getModInfo(id);
+    return dependency ? [{ id, label: singular(dependency.name) }] : [];
+  });
+}
+
 function conflictingEnabledMods(
   modId: string,
   conflicts: string[] | undefined,
@@ -90,6 +99,7 @@ setContext("data", data);
 {#if mod}
   {@const modData = data.getRawModData(mod.id)}
   {@const modInfo = data.getModInfo(mod.id)}
+  {@const dependencies = knownDependencies(modInfo?.dependencies)}
   {@const conflicts = knownConflicts(modInfo?.conflicts)}
   {@const enabledConflicts = conflictingEnabledMods(mod.id, modInfo?.conflicts)}
   {@const countByType = modData.reduce((acc, item) => {
@@ -135,6 +145,18 @@ setContext("data", data);
           </label>
         {/if}
       </dd>
+      {#if dependencies.length}
+        <dt>{t("Dependencies")}</dt>
+        <dd>
+          {#each dependencies as dependency, i}
+            {#if i > 0}{", "}{/if}
+            <a
+              href="{import.meta.env.BASE_URL}mod/{encodeURIComponent(
+                dependency.id,
+              )}{location.search}">{dependency.label}</a>
+          {/each}
+        </dd>
+      {/if}
       {#if modInfo?.authors?.length}
         <dt>{t("Authors")}</dt>
         <dd>{modInfo.authors.join(", ")}</dd>
@@ -168,9 +190,11 @@ setContext("data", data);
     {#if !data.hasFetchedMods}
       <p><em>{t("Loading...")}</em></p>
     {/if}
-    <p style="color: var(--cata-color-gray)">
-      {mod.description ? singular(mod.description) : ""}
-    </p>
+    {#if mod.description}
+      <p style="color: var(--cata-color-gray); white-space: pre-wrap">
+        <ColorText text={singular(mod.description)} fgOnly={true} />
+      </p>
+    {/if}
   </section>
   {#if enabledMods.includes(mod.id)}
     {#each reportedTypeEntries as [type, label]}

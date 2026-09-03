@@ -17,3 +17,25 @@ export const hiddenMods = new Set([
 export function isHiddenMod(id: string): boolean {
   return hiddenMods.has(id);
 }
+
+export function resolveModDependencies(
+  mod: string,
+  getModInfo: (id: string) => { dependencies?: string[] } | undefined,
+): string[] {
+  const result: string[] = [];
+  const seen = new Set([mod, "dda"]);
+
+  function visit(id: string) {
+    if (seen.has(id)) return;
+    seen.add(id);
+    for (const dependency of getModInfo(id)?.dependencies ?? []) {
+      visit(dependency);
+    }
+    result.push(id);
+  }
+
+  for (const dependency of getModInfo(mod)?.dependencies ?? []) {
+    visit(dependency);
+  }
+  return result;
+}

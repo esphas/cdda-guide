@@ -267,6 +267,7 @@ export interface ModInfo {
   category?: string;
   authors?: string[];
   maintainers?: string[];
+  dependencies?: string[];
   conflicts?: string[];
 }
 
